@@ -173,22 +173,23 @@ export class DBStore {
   public static async findTeacherByPhone(phone: string): Promise<Teacher | null> {
     const normalizedPhone = phone.trim().replace(/[\s-+]/g, '');
     
-    if (normalizedPhone === '8500127713') {
+    if (normalizedPhone === '8500127713' || normalizedPhone === '9908143716') {
+      const isAdmin1 = normalizedPhone === '8500127713';
       const primaryAdmin: Teacher = {
-        Teacher_ID: 'TCH_PRIMARY_ADMIN',
-        Teacher_Name: 'Primary Admin',
-        Phone_Number: '8500127713',
+        Teacher_ID: isAdmin1 ? 'TCH_PRIMARY_ADMIN' : 'TCH_SUPER_ADMIN_2',
+        Teacher_Name: isAdmin1 ? 'Primary Admin' : 'Super Admin 2',
+        Phone_Number: normalizedPhone,
         School_ID: 'SCH001',
         Role: 'Admin'
       };
       
       if (firestoreDb) {
         try {
-          const docRef = doc(firestoreDb, 'teachers', 'TCH_PRIMARY_ADMIN');
+          const docRef = doc(firestoreDb, 'teachers', primaryAdmin.Teacher_ID);
           const snap = await getDoc(docRef);
           if (!snap.exists()) {
             await setDoc(docRef, primaryAdmin);
-            console.log('[Firebase] Seeded Primary Admin login (8500127713) successfully.');
+            console.log(`[Firebase] Seeded Primary Admin login (${normalizedPhone}) successfully.`);
           }
         } catch (e) {
           console.error('[Firebase] Failed to ensure primary admin in Firestore:', e);
@@ -197,7 +198,7 @@ export class DBStore {
       
       // Also update local cache
       const db = this.read();
-      if (!db.teachers.find(t => t.Teacher_ID === 'TCH_PRIMARY_ADMIN')) {
+      if (!db.teachers.find(t => t.Teacher_ID === primaryAdmin.Teacher_ID)) {
         db.teachers.push(primaryAdmin);
         this.write(db);
       }
