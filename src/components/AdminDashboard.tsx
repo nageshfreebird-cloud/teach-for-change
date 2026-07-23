@@ -99,7 +99,7 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
   const [uploadedFileName, setUploadedFileName] = useState('');
 
   // Role Checks
-  const isPrimaryAdmin = adminUser.Phone_Number === '8500127713';
+  const isPrimaryAdmin = adminUser.Phone_Number === '8500127713' || adminUser.Phone_Number === '9908143716';
   
   // Resolve standard permissions
   const permissions = isPrimaryAdmin 
