@@ -1,0 +1,6 @@
+{
+  "name": "Teach For Change",
+  "description": "Mobile-friendly student assessment tracking app for Grade 3, 4, and 5 English, with local caching and offline capabilities.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
