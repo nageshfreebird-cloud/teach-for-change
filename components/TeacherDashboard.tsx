@@ -579,7 +579,8 @@ export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboard
             </div>
           )}
         </div>
-      </main>
-    </div>
-  );
+      </div>
+    </main>
+  </div>
+);
 }

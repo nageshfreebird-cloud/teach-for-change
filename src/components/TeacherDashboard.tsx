@@ -1,14 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-// 1
-// 2
-// 3
-// 4
-// 5
-// 6
-// 7
-// 8
-// 9
-// 10
 import { Calendar, User, BookOpen, ChevronRight, Edit2, CheckCircle2, AlertCircle, LogOut, ChevronDown, MessageSquare, Save, Download, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Teacher, Student, TestResult, TestPhase } from '../types';
@@ -589,7 +579,8 @@ export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboard
             </div>
           )}
         </div>
-      </main>
-    </div>
-  );
+      </div>
+    </main>
+  </div>
+);
 }
