@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { read, utils } from 'xlsx';
-import { School, Teacher, Student, TestResult } from '../types';
+import { School, Teacher, Student, TestResult, TestPhase } from '../types';
 import Logo from './Logo';
 import { 
   Filter, 
@@ -23,9 +23,13 @@ import {
   X,
   MapPin,
   ClipboardList,
+  FileText,
   ShieldAlert,
   Upload
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import SchoolReportPDF from './SchoolReportPDF';
+import * as html2pdf from 'html2pdf.js';
 
 interface AdminDashboardProps {
   adminUser: Teacher;
@@ -34,10 +38,14 @@ interface AdminDashboardProps {
 
 export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardProps) {
   // Navigation & View State
-  const [activeTab, setActiveTab] = useState<'assessments' | 'schools' | 'teachers' | 'students'>('assessments');
+  const [activeTab, setActiveTab] = useState<'assessments' | 'schools' | 'teachers' | 'students' | 'reports'>('assessments');
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Global Settings State
+  const [activeTestPhase, setActiveTestPhase] = useState<TestPhase>('None');
+  const [savingPhase, setSavingPhase] = useState(false);
 
   // Database States
   const [data, setData] = useState<{
@@ -66,7 +74,9 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
   // School Form Inputs
   const [schoolId, setSchoolId] = useState('');
   const [schoolName, setSchoolName] = useState('');
+  const [schoolFullName, setSchoolFullName] = useState('');
   const [schoolDistrict, setSchoolDistrict] = useState('');
+  const [schoolMandal, setSchoolMandal] = useState('');
   const [schoolBlock, setSchoolBlock] = useState('');
 
   // District input
@@ -131,6 +141,10 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
     return isAllDistricts || (sch && assignedDistricts.includes(sch.District));
   });
 
+  const [reportSchool, setReportSchool] = useState<string>('');
+  const [reportPhase, setReportPhase] = useState<TestPhase>('Baseline');
+  const [reportGenerating, setReportGenerating] = useState(false);
+
   useEffect(() => {
     fetchDashboardData();
   }, []);
@@ -141,6 +155,30 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
     setBatchImportMethod('paste');
     setDragActive(false);
   }, [addMode, activeTab]);
+
+  const handlePhaseChange = async (newPhase: TestPhase) => {
+    if (!window.confirm(`Are you sure you want to change the active test to ${newPhase}? Teachers will only be able to submit scores for this test phase.`)) return;
+    
+    setSavingPhase(true);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Active_Test: newPhase })
+      });
+      if (res.ok) {
+        setActiveTestPhase(newPhase);
+        showFeedback('success', `Active test successfully set to ${newPhase}`);
+      } else {
+        showFeedback('error', 'Failed to update active test settings.');
+      }
+    } catch (err) {
+      console.error('Error saving settings:', err);
+      showFeedback('error', 'Network error while contacting admin servers.');
+    } finally {
+      setSavingPhase(false);
+    }
+  };
 
   const processSpreadsheetFile = (file: File) => {
     if (!file) return;
@@ -220,7 +258,16 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/dashboard');
+      const [res, settingsRes] = await Promise.all([
+        fetch('/api/admin/dashboard'),
+        fetch('/api/settings')
+      ]);
+
+      if (settingsRes.ok) {
+        const settingsPayload = await settingsRes.json();
+        setActiveTestPhase(settingsPayload.Active_Test || 'None');
+      }
+
       if (res.ok) {
         const payload = await res.json();
         setData(payload);
@@ -317,7 +364,9 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
         body: JSON.stringify({
           School_ID: finalId,
           School_Name: schoolName.trim(),
+          School_Full_Name: schoolFullName.trim(),
           District: finalDistrict,
+          Mandal: schoolMandal.trim(),
           Block_or_Village: schoolBlock.trim() || 'N/A'
         })
       });
@@ -326,6 +375,8 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
         showFeedback('success', `School "${schoolName}" successfully saved with ID: ${finalId}`);
         setSchoolId('');
         setSchoolName('');
+        setSchoolFullName('');
+        setSchoolMandal('');
         setSchoolBlock('');
         setAddMode(null);
         await fetchDashboardData();
@@ -758,6 +809,7 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
     const fallbackResult: TestResult = {
       Student_ID: student.Student_ID,
       Test_Date: filterDate === 'all' ? 'Multiple' : filterDate,
+      Test_Type: 'None',
       Know: null,
       Read: null,
       Spell: null,
@@ -791,7 +843,7 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
   const handleCSVExport = () => {
     const headers = [
       'Student ID', 'Student Name', 'Grade', 'Section', 'School ID', 'School Name', 
-      'District', 'Teacher ID', 'Teacher Name', 'Test Date', 'Know Score (Max 10)', 
+      'District', 'Teacher ID', 'Teacher Name', 'Test Date', 'Test Phase', 'Know Score (Max 10)', 
       'Read Score (Max 10)', 'Spell Score (Max 10)', 'Camera Word Read (Max 10)', 
       'Camera Word Spell (Max 10)', 'Total Marks (Max 50)', 'Status', 'Last Updated', 'Teacher Notes'
     ];
@@ -815,6 +867,7 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
         rec.student.Teacher_ID,
         `"${tch ? tch.Teacher_Name.replace(/"/g, '""') : rec.student.Teacher_ID}"`,
         rec.result.Test_Date,
+        rec.result.Test_Type || '-',
         rec.result.Know ?? '-',
         rec.result.Read ?? '-',
         rec.result.Spell ?? '-',
@@ -944,6 +997,18 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
               <GraduationCap className="w-4 h-4" />
               <span>Students Directory ({visibleStudents.length})</span>
             </button>
+
+            <button
+              onClick={() => { setActiveTab('reports'); setAddMode(null); }}
+              className={`inline-flex items-center space-x-2 py-1.5 px-3 rounded-lg text-xs font-extrabold tracking-wide whitespace-nowrap transition-all ${
+                activeTab === 'reports'
+                  ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md'
+                  : 'text-slate-500 hover:bg-indigo-50 hover:text-indigo-900'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>Generate Reports</span>
+            </button>
           </nav>
         </div>
       </div>
@@ -959,6 +1024,37 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
           {/* TAB 1: ASSESSMENTS (READ ONLY STATISTICS & SEARCH LOGS) */}
           {activeTab === 'assessments' && (
             <div className="space-y-6">
+
+              {/* Super Prime Admin: Master Test Phase Control Panel */}
+              {isPrimaryAdmin && (
+                <div className="bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200 p-5 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-sm font-black text-teal-900 uppercase flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-teal-600" />
+                      Global Test Control
+                    </h2>
+                    <p className="text-[11px] text-teal-700 font-medium mt-1">
+                      Set which test phase is currently open for teachers. Only one can be active at a time.
+                    </p>
+                  </div>
+                  <div className="flex bg-white border border-teal-100 rounded-xl p-1 shadow-sm shrink-0">
+                    {(['Baseline', 'Midline', 'Endline', 'None'] as TestPhase[]).map((phase) => (
+                      <button
+                        key={phase}
+                        onClick={() => handlePhaseChange(phase)}
+                        disabled={savingPhase}
+                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          activeTestPhase === phase 
+                            ? (phase === 'None' ? 'bg-amber-100 text-amber-800' : 'bg-teal-600 text-white shadow-md')
+                            : 'text-slate-500 hover:bg-slate-50'
+                        } disabled:opacity-50`}
+                      >
+                        {phase}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               
               {/* Dashboard Summary Statistics Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1159,6 +1255,7 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
                           <th scope="col" className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">School</th>
                           <th scope="col" className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">Grade/Sec</th>
                           <th scope="col" className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">Teacher / Date</th>
+                          <th scope="col" className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">Phase</th>
                           <th scope="col" className="px-4 py-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100/20">Know</th>
                           <th scope="col" className="px-4 py-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100/20">Read</th>
                           <th scope="col" className="px-4 py-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-100/20">Spell</th>
@@ -1173,7 +1270,7 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
                           const school = data.schools.find(s => s.School_ID === rec.student.School_ID);
                           const district = school ? school.District : 'Rangareddy';
                           return (
-                            <tr key={`${rec.student.Student_ID}_${rec.result.Test_Date}`} className="hover:bg-slate-50/50 transition-colors">
+                            <tr key={`${rec.student.Student_ID}_${rec.result.Test_Type || 'Unknown'}`} className="hover:bg-slate-50/50 transition-colors">
                               <td className="px-5 py-3.5 whitespace-nowrap">
                                 <div className="font-extrabold text-slate-800">{rec.student.Student_Name}</div>
                                 <div className="text-[10px] text-slate-400 font-bold font-mono mt-0.5">{rec.student.Student_ID}</div>
@@ -1194,6 +1291,16 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
                                   <Calendar className="w-3 h-3 mr-1 text-slate-400" />
                                   {rec.result.Test_Date}
                                 </div>
+                              </td>
+                              <td className="px-5 py-3.5 whitespace-nowrap">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold text-[10px] uppercase ${
+                                  rec.result.Test_Type === 'Baseline' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                                  rec.result.Test_Type === 'Midline' ? 'bg-purple-50 text-purple-700 border border-purple-100' :
+                                  rec.result.Test_Type === 'Endline' ? 'bg-rose-50 text-rose-700 border border-rose-100' :
+                                  'bg-slate-100 text-slate-500'
+                                }`}>
+                                  {rec.result.Test_Type || 'Unknown'}
+                                </span>
                               </td>
                               <td className="px-4 py-3.5 text-center font-bold bg-slate-50/10">{rec.result.Know ?? '-'}</td>
                               <td className="px-4 py-3.5 text-center font-bold bg-slate-50/10">{rec.result.Read ?? '-'}</td>
@@ -1402,13 +1509,23 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">School Name</label>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">School Short Name</label>
                           <input
                             type="text"
-                            placeholder="Govt High School, Serilingampally"
+                            placeholder="MPPS MUNUGALA"
                             value={schoolName}
                             onChange={(e) => setSchoolName(e.target.value)}
                             required
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">School Full Name (For PDF)</label>
+                          <input
+                            type="text"
+                            placeholder="Mandal Parishad Primary School"
+                            value={schoolFullName}
+                            onChange={(e) => setSchoolFullName(e.target.value)}
                             className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none"
                           />
                         </div>
@@ -1425,11 +1542,23 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
                               ))}
                             </select>
                           </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Mandal</label>
+                            <input
+                              type="text"
+                              placeholder="Itikyala Mandal"
+                              value={schoolMandal}
+                              onChange={(e) => setSchoolMandal(e.target.value)}
+                              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none"
+                            />
+                          </div>
                           <div>
                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Block / Village</label>
                             <input
                               type="text"
-                              placeholder="Serilingampally"
+                              placeholder="Munugala"
                               value={schoolBlock}
                               onChange={(e) => setSchoolBlock(e.target.value)}
                               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none"
@@ -2187,6 +2316,108 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
                 </div>
               </div>
 
+            </div>
+          )}
+
+          {/* TAB 5: GENERATE REPORTS */}
+          {activeTab === 'reports' && (
+            <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+              <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+                <div className="flex items-center space-x-3 border-b border-slate-100 pb-4 mb-6">
+                  <FileText className="w-6 h-6 text-indigo-600" />
+                  <div>
+                    <h2 className="text-lg font-black text-slate-800">Automated School PDF Reports</h2>
+                    <p className="text-xs text-slate-500 font-medium">Select a school and a test phase to instantly download a perfectly formatted PDF report.</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase block mb-2">1. Select School</label>
+                    <select
+                      value={reportSchool}
+                      onChange={(e) => setReportSchool(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500"
+                    >
+                      <option value="" disabled>-- Select a school --</option>
+                      {visibleSchools.map(s => (
+                        <option key={s.School_ID} value={s.School_ID}>{s.School_Name} ({s.District})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-500 uppercase block mb-2">2. Select Test Phase</label>
+                    <select
+                      value={reportPhase}
+                      onChange={(e) => setReportPhase(e.target.value as TestPhase)}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500"
+                    >
+                      <option value="Baseline">Baseline</option>
+                      <option value="Midline">Midline</option>
+                      <option value="Endline">Endline</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  onClick={async () => {
+                    if (!reportSchool) {
+                      showFeedback('error', 'Please select a school first.');
+                      return;
+                    }
+                    setReportGenerating(true);
+                    try {
+                      setTimeout(async () => {
+                        const element = document.getElementById(`pdf-report-${reportSchool}`);
+                        if (!element) {
+                          showFeedback('error', 'Template not found on screen.');
+                          setReportGenerating(false);
+                          return;
+                        }
+                        
+                        const opt = {
+                          margin:       0,
+                          filename:     `${reportSchool}_${reportPhase}_Report.pdf`,
+                          image:        { type: 'jpeg', quality: 1 },
+                          html2canvas:  { scale: 2, useCORS: true },
+                          jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+                        };
+                        
+                        // @ts-ignore
+                        await html2pdf().set(opt).from(element).save();
+                        
+                        showFeedback('success', 'PDF downloaded successfully!');
+                        setReportGenerating(false);
+                      }, 500);
+                    } catch (e) {
+                      showFeedback('error', 'Error generating PDF.');
+                      setReportGenerating(false);
+                    }
+                  }}
+                  disabled={!reportSchool || reportGenerating}
+                  className="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-sm font-black shadow-lg disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center space-x-2"
+                >
+                  {reportGenerating ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Download className="w-5 h-5" />
+                  )}
+                  <span>{reportGenerating ? 'Generating PDF...' : 'Download PDF Report'}</span>
+                </button>
+              </div>
+
+              {/* Hidden template for PDF generation */}
+              {reportSchool && (
+                <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', zIndex: -1 }}>
+                  <SchoolReportPDF
+                    school={data.schools.find(s => s.School_ID === reportSchool)!}
+                    phase={reportPhase}
+                    students={data.students}
+                    results={data.results}
+                  />
+                </div>
+              )}
             </div>
           )}
 

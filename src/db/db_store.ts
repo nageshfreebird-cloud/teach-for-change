@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { initializeApp, setLogLevel } from 'firebase/app';
 import { getFirestore, doc, getDoc, setDoc, getDocs, collection, deleteDoc } from 'firebase/firestore';
-import { DatabaseSchema, School, Teacher, Student, TestResult } from '../types';
+import { DatabaseSchema, School, Teacher, Student, TestResult, GlobalSettings, TestPhase } from '../types';
 
 const DB_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DB_DIR, 'db.json');
@@ -95,7 +95,8 @@ export class DBStore {
         schools: SEED_SCHOOLS,
         teachers: SEED_TEACHERS,
         students: SEED_STUDENTS,
-        results: []
+        results: [],
+        settings: { Active_Test: 'None' }
       };
       fs.writeFileSync(DB_FILE, JSON.stringify(initialDb, null, 2), 'utf-8');
     }
@@ -349,7 +350,7 @@ export class DBStore {
     return allResults.filter(r => classStudentIds.includes(r.Student_ID));
   }
 
-  public static async saveResult(result: Partial<TestResult> & { Student_ID: string; Test_Date: string; Teacher_ID: string }): Promise<TestResult> {
+  public static async saveResult(result: Partial<TestResult> & { Student_ID: string; Test_Date: string; Teacher_ID: string; Test_Type: TestPhase }): Promise<TestResult> {
     const now = new Date().toISOString();
 
     // Helper to compute total marks safely
@@ -363,7 +364,7 @@ export class DBStore {
     };
 
     let current: TestResult | null = null;
-    const docId = `${result.Student_ID}_${result.Test_Date}`;
+    const docId = `${result.Student_ID}_${result.Test_Type}`;
 
     // Try fetching existing result from Firestore first to merge correctly
     if (firestoreDb) {
@@ -382,7 +383,7 @@ export class DBStore {
     if (!current) {
       const db = this.read();
       const existing = db.results.find(
-        r => r.Student_ID === result.Student_ID && r.Test_Date === result.Test_Date
+        r => r.Student_ID === result.Student_ID && r.Test_Type === result.Test_Type
       );
       if (existing) {
         current = existing;
@@ -401,29 +402,28 @@ export class DBStore {
         Spell: result.Spell !== undefined ? result.Spell : current.Spell,
         Camera_Word_Read: result.Camera_Word_Read !== undefined ? result.Camera_Word_Read : current.Camera_Word_Read,
         Camera_Word_Spell: result.Camera_Word_Spell !== undefined ? result.Camera_Word_Spell : current.Camera_Word_Spell,
-        Teacher_ID: result.Teacher_ID, // Use current saving teacher
-        Last_Updated: now,
         Notes: result.Notes !== undefined ? result.Notes : current.Notes,
-        Total_Marks: 0 // Will compute below
+        Total_Marks: calcTotal({ ...current, ...result }),
+        Last_Updated: now
       };
     } else {
-      // Create new record
+      // New record
       updatedResult = {
         Student_ID: result.Student_ID,
         Test_Date: result.Test_Date,
+        Test_Type: result.Test_Type,
+        Teacher_ID: result.Teacher_ID,
         Know: result.Know ?? null,
         Read: result.Read ?? null,
         Spell: result.Spell ?? null,
         Camera_Word_Read: result.Camera_Word_Read ?? null,
         Camera_Word_Spell: result.Camera_Word_Spell ?? null,
         Total_Marks: 0, // Will compute below
-        Teacher_ID: result.Teacher_ID,
         Last_Updated: now,
         Notes: result.Notes ?? ''
       };
+      updatedResult.Total_Marks = calcTotal(updatedResult);
     }
-
-    updatedResult.Total_Marks = calcTotal(updatedResult);
 
     // Save to Firestore
     if (firestoreDb) {
@@ -439,7 +439,7 @@ export class DBStore {
     // Dual-write/cache locally
     const db = this.read();
     const existingIndex = db.results.findIndex(
-      r => r.Student_ID === result.Student_ID && r.Test_Date === result.Test_Date
+      r => r.Student_ID === result.Student_ID && r.Test_Type === result.Test_Type
     );
 
     if (existingIndex !== -1) {

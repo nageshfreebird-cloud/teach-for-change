@@ -97,15 +97,16 @@ async function startServer() {
   // Save/Update Assessment Result (Auto-saves immediately)
   app.post('/api/results', async (req, res) => {
     try {
-      const { Student_ID, Test_Date, Teacher_ID, Know, Read, Spell, Camera_Word_Read, Camera_Word_Spell, Notes } = req.body;
+      const { Student_ID, Test_Date, Test_Type, Teacher_ID, Know, Read, Spell, Camera_Word_Read, Camera_Word_Spell, Notes } = req.body;
 
-      if (!Student_ID || !Test_Date || !Teacher_ID) {
-        return res.status(400).json({ error: 'Student_ID, Test_Date, and Teacher_ID are required.' });
+      if (!Student_ID || !Test_Date || !Teacher_ID || !Test_Type) {
+        return res.status(400).json({ error: 'Student_ID, Test_Date, Test_Type, and Teacher_ID are required.' });
       }
 
       const savedResult = await DBStore.saveResult({
         Student_ID,
         Test_Date,
+        Test_Type,
         Teacher_ID,
         Know: Know !== undefined ? Know : undefined,
         Read: Read !== undefined ? Read : undefined,
@@ -116,6 +117,29 @@ async function startServer() {
       });
 
       res.json({ success: true, result: savedResult });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Settings API
+  app.get('/api/settings', async (req, res) => {
+    try {
+      const settings = await DBStore.getSettings();
+      res.json(settings);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/settings', async (req, res) => {
+    try {
+      const { Active_Test } = req.body;
+      if (!Active_Test) {
+        return res.status(400).json({ error: 'Active_Test is required' });
+      }
+      const updated = await DBStore.saveSettings({ Active_Test });
+      res.json({ success: true, settings: updated });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }

@@ -1,7 +1,9 @@
 export interface School {
   School_ID: string;
   School_Name: string;
+  School_Full_Name?: string;
   District: string;
+  Mandal?: string;
   Block_or_Village: string;
 }
 
@@ -29,9 +31,12 @@ export interface Student {
   Teacher_ID: string;
 }
 
+export type TestPhase = 'Baseline' | 'Midline' | 'Endline' | 'None';
+
 export interface TestResult {
   Student_ID: string;
   Test_Date: string; // YYYY-MM-DD
+  Test_Type: TestPhase; // The phase this result belongs to
   Know: number | null;
   Read: number | null;
   Spell: number | null;
@@ -43,11 +48,16 @@ export interface TestResult {
   Notes: string;
 }
 
+export interface GlobalSettings {
+  Active_Test: TestPhase;
+}
+
 export interface DatabaseSchema {
   schools: School[];
   teachers: Teacher[];
   students: Student[];
   results: TestResult[];
+  settings: GlobalSettings;
 }
 
 export interface AuthState {

@@ -4,6 +4,7 @@ export interface SyncQueueItem {
   id: string; // Unique queue item ID
   Student_ID: string;
   Test_Date: string;
+  Test_Type: string;
   Teacher_ID: string;
   component: 'Know' | 'Read' | 'Spell' | 'Camera_Word_Read' | 'Camera_Word_Spell' | 'Notes';
   value: number | string | null;
@@ -31,18 +32,17 @@ export class SyncManager {
   public static addToQueue(
     Student_ID: string,
     Test_Date: string,
+    Test_Type: string,
     Teacher_ID: string,
     component: 'Know' | 'Read' | 'Spell' | 'Camera_Word_Read' | 'Camera_Word_Spell' | 'Notes',
     value: number | string | null
   ): SyncQueueItem {
     const queue = this.getQueue();
     
-    // Check if there's already an un-synced change for this student + component + date
-    // If yes, we can overwrite it to avoid redundant API requests
     const existingIndex = queue.findIndex(
       item =>
         item.Student_ID === Student_ID &&
-        item.Test_Date === Test_Date &&
+        item.Test_Type === Test_Type &&
         item.component === component
     );
 
@@ -50,6 +50,7 @@ export class SyncManager {
       id: Math.random().toString(36).substring(2, 9),
       Student_ID,
       Test_Date,
+      Test_Type,
       Teacher_ID,
       component,
       value,
@@ -89,16 +90,18 @@ export class SyncManager {
   public static updateCachedResult(
     Student_ID: string,
     Test_Date: string,
+    Test_Type: string,
     Teacher_ID: string,
     component: 'Know' | 'Read' | 'Spell' | 'Camera_Word_Read' | 'Camera_Word_Spell' | 'Notes',
     value: number | string | null
   ): TestResult {
     const cache = this.getCache();
-    const cacheKey = `${Student_ID}_${Test_Date}`;
+    const cacheKey = `${Student_ID}_${Test_Type}`;
     
     const existing = cache[cacheKey] || {
       Student_ID,
       Test_Date,
+      Test_Type: Test_Type as any,
       Know: null,
       Read: null,
       Spell: null,
@@ -134,11 +137,11 @@ export class SyncManager {
   public static mergeServerResults(results: TestResult[]) {
     const cache = this.getCache();
     results.forEach(r => {
-      const cacheKey = `${r.Student_ID}_${r.Test_Date}`;
+      const cacheKey = `${r.Student_ID}_${r.Test_Type}`;
       // Only overwrite if cache doesn't exist, or if server version is newer and we have no pending sync
       const pendingQueue = this.getQueue();
       const hasPendingSync = pendingQueue.some(
-        item => item.Student_ID === r.Student_ID && item.Test_Date === r.Test_Date
+        item => item.Student_ID === r.Student_ID && item.Test_Type === r.Test_Type
       );
 
       if (!hasPendingSync) {
@@ -161,17 +164,16 @@ export class SyncManager {
     for (const item of queue) {
       try {
         // Construct partial payload to send to server
-        const payload: Record<string, any> = {
-          Student_ID: item.Student_ID,
-          Test_Date: item.Test_Date,
-          Teacher_ID: item.Teacher_ID,
-        };
-        payload[item.component] = item.value;
-
         const response = await fetch('/api/results', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            Student_ID: item.Student_ID,
+            Test_Date: item.Test_Date,
+            Test_Type: item.Test_Type,
+            Teacher_ID: item.Teacher_ID,
+            [item.component]: item.value
+          })
         });
 
         if (response.ok) {
@@ -179,7 +181,7 @@ export class SyncManager {
           // Update cache with server response
           if (data.success && data.result) {
             const cache = this.getCache();
-            const cacheKey = `${item.Student_ID}_${item.Test_Date}`;
+            const cacheKey = `${item.Student_ID}_${item.Test_Type}`;
             cache[cacheKey] = data.result;
             this.saveCache(cache);
           }

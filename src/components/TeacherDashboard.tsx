@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar, User, BookOpen, ChevronRight, Edit2, CheckCircle2, AlertCircle, LogOut, ChevronDown, MessageSquare, Save, Download } from 'lucide-react';
+import { Calendar, User, BookOpen, ChevronRight, Edit2, CheckCircle2, AlertCircle, LogOut, ChevronDown, MessageSquare, Save, Download, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Teacher, Student, TestResult } from '../types';
+import { Teacher, Student, TestResult, TestPhase } from '../types';
 import { SyncManager } from '../utils/sync';
 import OfflineIndicator from './OfflineIndicator';
 import CompactCell from './CompactCell';
@@ -20,6 +20,7 @@ export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboard
     return localToday.toISOString().split('T')[0];
   });
   const [students, setStudents] = useState<Student[]>([]);
+  const [activeTestPhase, setActiveTestPhase] = useState<TestPhase>('None');
   const [resultsCache, setResultsCache] = useState<Record<string, TestResult>>({});
   const [loading, setLoading] = useState(true);
   const [schools, setSchools] = useState<any[]>([]);
@@ -59,6 +60,13 @@ export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboard
   const fetchStudentsAndResults = async () => {
     setLoading(true);
     try {
+      // 0. Fetch Global Settings
+      const settingsRes = await fetch('/api/settings');
+      if (settingsRes.ok) {
+        const settingsData = await settingsRes.json();
+        setActiveTestPhase(settingsData.Active_Test || 'None');
+      }
+
       // 1. Fetch Students
       const studentRes = await fetch(`/api/teacher/students?teacherId=${teacher.Teacher_ID}&grade=${selectedGrade}`);
       let fetchedStudents: Student[] = [];
@@ -67,7 +75,7 @@ export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboard
         setStudents(fetchedStudents);
       }
 
-      // 2. Fetch Results for this class and date
+      // 2. Fetch Results for this class and date (actually we should fetch all results for this phase, but we'll stick to the existing behavior or update later)
       const resultsRes = await fetch(`/api/teacher/results?teacherId=${teacher.Teacher_ID}&grade=${selectedGrade}&date=${selectedDate}`);
       if (resultsRes.ok) {
         const resultsData: TestResult[] = await resultsRes.json();
@@ -88,10 +96,12 @@ export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboard
   };
 
   const getStudentResult = (studentId: string): TestResult => {
-    const key = `${studentId}_${selectedDate}`;
+    // Look for result matching the current active phase
+    const key = `${studentId}_${activeTestPhase}`;
     return resultsCache[key] || {
       Student_ID: studentId,
       Test_Date: selectedDate,
+      Test_Type: activeTestPhase === 'None' ? ('Baseline' as any) : activeTestPhase,
       Know: null,
       Read: null,
       Spell: null,
@@ -143,10 +153,13 @@ export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboard
     component: 'Know' | 'Read' | 'Spell' | 'Camera_Word_Read' | 'Camera_Word_Spell' | 'Notes',
     val: number | string | null
   ) => {
+    if (activeTestPhase === 'None') return;
+
     // 1. Instantly update client UI cache state (highly responsive!)
     const updatedResult = SyncManager.updateCachedResult(
       studentId,
       selectedDate,
+      activeTestPhase,
       teacher.Teacher_ID,
       component,
       val
@@ -158,7 +171,7 @@ export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboard
     setSavingStatus(prev => ({ ...prev, [compKey]: 'saving' }));
 
     // 2. Queue the change in local storage sync queue
-    SyncManager.addToQueue(studentId, selectedDate, teacher.Teacher_ID, component, val);
+    SyncManager.addToQueue(studentId, selectedDate, activeTestPhase, teacher.Teacher_ID, component, val);
 
     // 3. Immediately trigger background sync if online
     if (navigator.onLine) {
@@ -259,15 +272,21 @@ export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboard
           <div className="glass-card p-4 rounded-2xl shadow-sm space-y-2 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300">
             <div className="flex items-center space-x-2 text-slate-800">
               <Calendar className="w-4 h-4 text-indigo-600" />
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Assessment Date</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Assessment Date & Phase</span>
             </div>
-            <input
+            <div className="flex gap-2">
+              <input
               type="date"
               id="assessment-date-input"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full px-3 py-2 bg-white/50 hover:bg-white/80 border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 rounded-xl text-sm font-bold text-slate-800 focus:outline-none transition-all"
+              className="w-2/3 px-3 py-2 bg-white/50 hover:bg-white/80 border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 rounded-xl text-sm font-bold text-slate-800 focus:outline-none transition-all"
             />
+            <div className={`w-1/3 flex items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-wider ${
+              activeTestPhase === 'None' ? 'bg-rose-100 text-rose-700' : 'bg-indigo-100 text-indigo-700'
+            }`}>
+              {activeTestPhase}
+            </div>
           </div>
 
           {/* Grade Selector */}
@@ -400,6 +419,14 @@ export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboard
             <div className="p-12 text-center animate-fade-in">
               <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
               <p className="text-sm text-slate-500 mt-3 font-medium">Loading class list...</p>
+            </div>
+          ) : activeTestPhase === 'None' ? (
+            <div className="p-12 text-center animate-fade-in bg-rose-50/50 m-4 rounded-xl border border-rose-100">
+              <ShieldAlert className="w-10 h-10 text-rose-500 mx-auto mb-3" />
+              <h3 className="text-sm font-black text-rose-900 uppercase tracking-wider">Assessments Currently Locked</h3>
+              <p className="text-xs text-rose-700 font-medium mt-1">
+                The primary admin has disabled assessment entry at this time. Please check back later or contact your admin if you believe this is an error.
+              </p>
             </div>
           ) : students.length === 0 ? (
             <div className="p-12 text-center animate-fade-in">
