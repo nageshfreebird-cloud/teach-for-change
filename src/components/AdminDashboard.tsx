@@ -28,7 +28,10 @@ import {
   Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Teacher, School, Student, TestResult, TestPhase } from '../types';
+import Logo from './Logo';
 import SchoolReportPDF from './SchoolReportPDF';
+// @ts-ignore
 import * as html2pdf from 'html2pdf.js';
 
 interface AdminDashboardProps {
