@@ -2530,32 +2530,83 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
                       // Give React a moment to render the hidden component
                       await new Promise(r => setTimeout(r, 500));
                       
+                      // Extract the element to print
                       const element = document.getElementById(`pdf-report-${reportSchool}`);
                       if (!element) {
                         showFeedback('error', 'Template not found on screen.');
                         setReportGenerating(false);
                         return;
                       }
-                      
-                      const opt = {
-                        margin:       0,
-                        filename:     `${reportSchool}_${reportPhase}_Report.pdf`,
-                        image:        { type: 'jpeg', quality: 1 },
-                        html2canvas:  { scale: 2, useCORS: true },
-                        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-                      };
-                      
-                      // Ensure html2pdf is available globally via CDN
-                      // @ts-ignore
-                      if (typeof window.html2pdf !== 'function') {
-                        throw new Error('PDF generator library not loaded. Please refresh the page.');
+
+                      // Create a hidden iframe for printing
+                      const iframe = document.createElement('iframe');
+                      iframe.style.position = 'fixed';
+                      iframe.style.right = '0';
+                      iframe.style.bottom = '0';
+                      iframe.style.width = '0';
+                      iframe.style.height = '0';
+                      iframe.style.border = '0';
+                      document.body.appendChild(iframe);
+
+                      const iframeDoc = iframe.contentWindow?.document;
+                      if (!iframeDoc) {
+                        throw new Error("Unable to create print frame");
                       }
-                      
-                      // @ts-ignore
-                      await window.html2pdf().set(opt).from(element).save();
-                      
-                      showFeedback('success', 'PDF downloaded successfully!');
-                      setReportGenerating(false);
+
+                      // Extract all styles from the main document to ensure Tailwind works
+                      const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+                        .map(node => node.outerHTML)
+                        .join('\n');
+
+                      iframeDoc.open();
+                      iframeDoc.write(`
+                        <!DOCTYPE html>
+                        <html>
+                          <head>
+                            <title>${reportSchool}_${reportPhase}_Report</title>
+                            ${styles}
+                            <style>
+                              @page { margin: 0; size: A4 portrait; }
+                              body { 
+                                margin: 0; 
+                                -webkit-print-color-adjust: exact !important; 
+                                print-color-adjust: exact !important; 
+                                background: white;
+                              }
+                              /* Strip forced dimensions for printing so it fits the A4 page perfectly */
+                              #pdf-report-${reportSchool} {
+                                width: 100% !important;
+                                height: auto !important;
+                                min-height: 100vh;
+                              }
+                            </style>
+                          </head>
+                          <body>
+                            ${element.outerHTML}
+                          </body>
+                        </html>
+                      `);
+                      iframeDoc.close();
+
+                      // Wait briefly for images/fonts to render in the iframe, then trigger print
+                      setTimeout(() => {
+                        try {
+                          iframe.contentWindow?.focus();
+                          iframe.contentWindow?.print();
+                          showFeedback('success', 'Print dialog opened! You can Save as PDF.');
+                        } catch (err) {
+                          console.error("Print Error", err);
+                          showFeedback('error', 'Browser blocked printing.');
+                        } finally {
+                          setReportGenerating(false);
+                          setTimeout(() => {
+                            if (document.body.contains(iframe)) {
+                              document.body.removeChild(iframe);
+                            }
+                          }, 2000);
+                        }
+                      }, 1000);
+
                     } catch (e: any) {
                       console.error("PDF Error", e);
                       showFeedback('error', 'Error generating PDF: ' + (e.message || String(e)));
