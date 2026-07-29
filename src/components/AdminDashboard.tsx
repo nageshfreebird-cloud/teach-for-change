@@ -2545,17 +2545,20 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
                         jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
                       };
                       
-                      // Dynamically import to avoid Vite build issues
-                      const html2pdfModule = await import('html2pdf.js');
-                      const html2pdf = html2pdfModule.default || html2pdfModule;
+                      // Ensure html2pdf is available globally via CDN
+                      // @ts-ignore
+                      if (typeof window.html2pdf !== 'function') {
+                        throw new Error('PDF generator library not loaded. Please refresh the page.');
+                      }
                       
                       // @ts-ignore
-                      await html2pdf().set(opt).from(element).save();
+                      await window.html2pdf().set(opt).from(element).save();
                       
                       showFeedback('success', 'PDF downloaded successfully!');
                       setReportGenerating(false);
-                    } catch (e) {
-                      showFeedback('error', 'Error generating PDF.');
+                    } catch (e: any) {
+                      console.error("PDF Error", e);
+                      showFeedback('error', 'Error generating PDF: ' + (e.message || String(e)));
                       setReportGenerating(false);
                     }
                   }}
