@@ -140,16 +140,12 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
   const shortName = school.School_Name.replace(/\s+/g, '_').toUpperCase();
 
   return (
-    <div className="bg-white text-black p-8 font-serif w-[800px] h-[1131px] mx-auto box-border relative overflow-hidden" id={`pdf-report-${school.School_ID}`}>
+    <div className="bg-white text-black p-8 font-serif w-[800px] min-h-[1131px] mx-auto box-border relative" id={`pdf-report-${school.School_ID}`}>
       {/* --- HEADER --- */}
       <div className="text-center mb-8 relative">
         <div className="absolute right-0 top-0">
-          {/* Logo placeholder - using a colorful CSS circle as a proxy for the Teach For Change logo if not available */}
-          <div className="w-16 h-20 bg-gradient-to-br from-cyan-300 via-amber-200 to-rose-300 rounded-t-[40px] rounded-b-[40px] flex items-center justify-center p-1 shadow-sm border border-slate-100">
-            <div className="bg-white w-full h-full rounded-t-[36px] rounded-b-[36px] flex flex-col items-center justify-center p-1">
-              <span className="text-[7px] font-black text-cyan-500 uppercase leading-none">Teach</span>
-              <span className="text-[7px] font-black text-rose-500 uppercase leading-none mt-0.5">Change</span>
-            </div>
+          <div className="w-24 h-auto">
+            <img src="/logo.png" alt="Teach For Change" className="w-full h-auto object-contain" />
           </div>
         </div>
 

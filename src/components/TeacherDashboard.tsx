@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar, User, BookOpen, ChevronRight, Edit2, CheckCircle2, AlertCircle, LogOut, ChevronDown, MessageSquare, Save, Download, ShieldAlert, Upload } from 'lucide-react';
+import { Calendar, User, BookOpen, ChevronRight, Edit2, CheckCircle2, AlertCircle, LogOut, ChevronDown, MessageSquare, Save, Download, ShieldAlert, Upload, Eye, EyeOff } from 'lucide-react';
 import { read, utils } from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
 import { Teacher, Student, TestResult, TestPhase } from '../types';
@@ -31,6 +31,7 @@ export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboard
   const [savingStatus, setSavingStatus] = useState<Record<string, 'saved' | 'saving' | 'offline'>>({});
   const [syncLoading, setSyncLoading] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const [showExtraColumns, setShowExtraColumns] = useState(false);
 
   // Ref to student cards for auto-scrolling
   const studentRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -406,64 +407,79 @@ export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboard
         {/* Action Controls & Resume helper */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 glass-card p-4 rounded-2xl shadow-sm">
           <div className="min-w-0 flex-1">
-            {firstIncompleteStudent ? (
-              <div className="flex items-center space-x-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse border border-amber-200"></span>
-                <span className="text-xs text-slate-600 font-medium">
-                  Next up: <strong className="font-bold text-slate-900">{firstIncompleteStudent.Student_Name}</strong> (Sec {firstIncompleteStudent.Section})
-                </span>
-                <button
-                  onClick={handleScrollToFirstIncomplete}
-                  className="text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:underline cursor-pointer ml-1"
-                >
-                  Focus & Enter
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-2 text-emerald-600">
-                <CheckCircle2 className="w-4 h-4" />
-                <span className="text-xs font-bold">Awesome! All assessments completed for Grade {selectedGrade}.</span>
-              </div>
+            {showExtraColumns && (
+              firstIncompleteStudent ? (
+                <div className="flex items-center space-x-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse border border-amber-200"></span>
+                  <span className="text-xs text-slate-600 font-medium">
+                    Next up: <strong className="font-bold text-slate-900">{firstIncompleteStudent.Student_Name}</strong> (Sec {firstIncompleteStudent.Section})
+                  </span>
+                  <button
+                    onClick={handleScrollToFirstIncomplete}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-700 hover:underline cursor-pointer ml-1"
+                  >
+                    Focus & Enter
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2 text-emerald-600">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span className="text-xs font-bold">Awesome! All assessments completed for Grade {selectedGrade}.</span>
+                </div>
+              )
             )}
           </div>
 
             <div className="flex items-center space-x-2">
-              <input 
-                type="file" 
-                accept=".xlsx,.xls,.csv" 
-                ref={fileInputRef} 
-                onChange={handleFileUpload} 
-                className="hidden" 
-              />
               <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={syncLoading}
-                className="hidden sm:inline-flex items-center space-x-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition-colors"
-                title="Import Marks from Excel/CSV"
+                onClick={() => setShowExtraColumns(!showExtraColumns)}
+                className="inline-flex items-center space-x-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-bold rounded-xl transition-colors border border-slate-200"
+                title={showExtraColumns ? "Hide extra options" : "Show extra options"}
               >
-                <Upload className="w-4 h-4" />
-                <span>Import</span>
+                {showExtraColumns ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                <span>{showExtraColumns ? 'Hide Tools' : 'More Tools'}</span>
               </button>
-              <button
-                id="btn-export-csv"
-                onClick={handleExportCSV}
-                className="hidden sm:inline-flex items-center space-x-2 px-4 py-2.5 bg-white/50 hover:bg-white/80 text-slate-700 text-xs font-bold rounded-xl active:scale-95 transition-all cursor-pointer border border-slate-200/60 shadow-sm hover:shadow"
-                title="Download results as CSV Excel spreadsheet"
-              >
-                <Download className="w-4 h-4 text-slate-500" />
-                <span>Export CSV</span>
-              </button>
+              
+              {showExtraColumns && (
+                <>
+                  <input 
+                    type="file" 
+                    accept=".xlsx,.xls,.csv" 
+                    ref={fileInputRef} 
+                    onChange={handleFileUpload} 
+                    className="hidden" 
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={syncLoading}
+                    className="hidden sm:inline-flex items-center space-x-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition-colors"
+                    title="Import Marks from Excel/CSV"
+                  >
+                    <Upload className="w-4 h-4" />
+                    <span>Import</span>
+                  </button>
+                  <button
+                    id="btn-export-csv"
+                    onClick={handleExportCSV}
+                    className="hidden sm:inline-flex items-center space-x-2 px-4 py-2.5 bg-white/50 hover:bg-white/80 text-slate-700 text-xs font-bold rounded-xl active:scale-95 transition-all cursor-pointer border border-slate-200/60 shadow-sm hover:shadow"
+                    title="Download results as CSV Excel spreadsheet"
+                  >
+                    <Download className="w-4 h-4 text-slate-500" />
+                    <span>Export</span>
+                  </button>
 
-            <button
-              id="btn-save-all-sync"
-              onClick={handleSaveAllAndSync}
-              disabled={syncLoading}
-              className="inline-flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-md disabled:opacity-50 active:scale-95 transition-all cursor-pointer"
-            >
-              <Save className="w-4 h-4" />
-              <span>{syncLoading ? 'Syncing...' : 'Save All & Sync'}</span>
-            </button>
-          </div>
+                  <button
+                    id="btn-save-all-sync"
+                    onClick={handleSaveAllAndSync}
+                    disabled={syncLoading}
+                    className="inline-flex items-center space-x-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold rounded-xl shadow-md disabled:opacity-50 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{syncLoading ? 'Syncing...' : 'Sync'}</span>
+                  </button>
+                </>
+              )}
+            </div>
         </div>
 
         {/* Notification Toast Feedback */}
@@ -523,9 +539,13 @@ export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboard
                     <th className="py-3 px-2 text-center w-16">Spell</th>
                     <th className="py-3 px-2 text-center w-16">CWR</th>
                     <th className="py-3 px-2 text-center w-16">CWS</th>
-                    <th className="py-3 px-2 text-center w-14">Total</th>
-                    <th className="py-3 px-4 min-w-[160px]">Observations / Notes</th>
-                    <th className="py-3 px-3 text-center w-28">Status</th>
+                    {showExtraColumns && (
+                      <>
+                        <th className="py-3 px-2 text-center w-14">Total</th>
+                        <th className="py-3 px-4 min-w-[160px]">Observations / Notes</th>
+                        <th className="py-3 px-3 text-center w-28">Status</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/40 text-xs">
@@ -614,41 +634,45 @@ export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboard
                             />
                           </td>
 
-                          {/* Total */}
-                          <td className="py-2 px-2 text-center">
-                            <span className={`font-mono font-extrabold text-sm ${
-                              complete ? 'text-emerald-600' : 'text-slate-500'
-                            }`}>
-                              {res.Total_Marks}
-                            </span>
-                            <span className="text-[10px] text-slate-300 font-bold block">/50</span>
-                          </td>
+                          {showExtraColumns && (
+                            <>
+                              {/* Total */}
+                              <td className="py-2 px-2 text-center">
+                                <span className={`font-mono font-extrabold text-sm ${
+                                  complete ? 'text-emerald-600' : 'text-slate-500'
+                                }`}>
+                                  {res.Total_Marks}
+                                </span>
+                                <span className="text-[10px] text-slate-300 font-bold block">/50</span>
+                              </td>
 
-                          {/* Notes Input */}
-                          <td className="py-2 px-4">
-                            <input
-                              type="text"
-                              value={res.Notes || ''}
-                              onChange={(e) => handleMarkChange(student.Student_ID, 'Notes', e.target.value)}
-                              placeholder="Observations..."
-                              className="w-full px-2.5 py-1.5 text-xs font-semibold border border-white/50 rounded-md focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 bg-white/50 placeholder:text-slate-400 transition-all shadow-inner hover:bg-white"
-                            />
-                          </td>
+                              {/* Notes Input */}
+                              <td className="py-2 px-4">
+                                <input
+                                  type="text"
+                                  value={res.Notes || ''}
+                                  onChange={(e) => handleMarkChange(student.Student_ID, 'Notes', e.target.value)}
+                                  placeholder="Observations..."
+                                  className="w-full px-2.5 py-1.5 text-xs font-semibold border border-white/50 rounded-md focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 bg-white/50 placeholder:text-slate-400 transition-all shadow-inner hover:bg-white"
+                                />
+                              </td>
 
-                          {/* Status Label */}
-                          <td className="py-2 px-3 text-center">
-                            {complete ? (
-                              <span className="inline-flex items-center space-x-1 text-[10px] font-bold text-emerald-700 bg-emerald-100/50 border border-emerald-200 px-2 py-0.5 rounded-full shadow-sm">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
-                                <span>Done</span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center space-x-1 text-[10px] font-bold text-amber-700 bg-amber-100/50 border border-amber-200 px-2 py-0.5 rounded-full shadow-sm">
-                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block"></span>
-                                <span>Pending</span>
-                              </span>
-                            )}
-                          </td>
+                              {/* Status Label */}
+                              <td className="py-2 px-3 text-center">
+                                {complete ? (
+                                  <span className="inline-flex items-center space-x-1 text-[10px] font-bold text-emerald-700 bg-emerald-100/50 border border-emerald-200 px-2 py-0.5 rounded-full shadow-sm">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                                    <span>Done</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center space-x-1 text-[10px] font-bold text-amber-700 bg-amber-100/50 border border-amber-200 px-2 py-0.5 rounded-full shadow-sm">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block"></span>
+                                    <span>Pending</span>
+                                  </span>
+                                )}
+                              </td>
+                            </>
+                          )}
                         </motion.tr>
                       );
                     })}
