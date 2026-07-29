@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar, User, BookOpen, ChevronRight, Edit2, CheckCircle2, AlertCircle, LogOut, ChevronDown, MessageSquare, Save, Download, ShieldAlert } from 'lucide-react';
+import { Calendar, User, BookOpen, ChevronRight, Edit2, CheckCircle2, AlertCircle, LogOut, ChevronDown, MessageSquare, Save, Download, ShieldAlert, Upload } from 'lucide-react';
+import { read, utils } from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
 import { Teacher, Student, TestResult, TestPhase } from '../types';
 import { SyncManager } from '../utils/sync';
@@ -12,6 +13,7 @@ interface TeacherDashboardProps {
 }
 
 export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboardProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedGrade, setSelectedGrade] = useState<3 | 4 | 5>(3);
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const today = new Date();
@@ -236,6 +238,67 @@ export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboard
     document.body.removeChild(link);
   };
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSyncLoading(true);
+    setSyncFeedback('Reading file...');
+
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const bstr = evt.target?.result;
+        const wb = read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = utils.sheet_to_json<any>(ws);
+
+        let matchCount = 0;
+        let updateCount = 0;
+
+        for (const row of data) {
+          const studentId = row['Student ID'] || row['ID'] || row['Student_ID'];
+          if (!studentId) continue;
+          
+          // Find student in current list
+          const matchedStudent = students.find(s => s.Student_ID.toLowerCase() === studentId.toLowerCase());
+          if (matchedStudent) {
+            matchCount++;
+            
+            // Map columns to components
+            const components: Record<string, string> = {
+              'Know': 'Know',
+              'Read': 'Read',
+              'Spell': 'Spell',
+              'Camera Word Read': 'Camera_Word_Read',
+              'Camera Word Spell': 'Camera_Word_Spell',
+              'Notes': 'Notes'
+            };
+
+            for (const [colName, compName] of Object.entries(components)) {
+              if (row[colName] !== undefined && row[colName] !== '') {
+                const val = typeof row[colName] === 'string' && compName !== 'Notes' ? parseInt(row[colName]) : row[colName];
+                await handleMarkChange(matchedStudent.Student_ID, compName as any, isNaN(val) && typeof val === 'number' ? null : val);
+                updateCount++;
+              }
+            }
+          }
+        }
+        
+        setSyncFeedback(`Imported! Matched ${matchCount} students and queued ${updateCount} updates. Click "Save All & Sync" to commit.`);
+      } catch (err) {
+        console.error('File read error', err);
+        setSyncFeedback('Error reading file. Ensure it is a valid Excel/CSV file with correct headers.');
+      } finally {
+        setSyncLoading(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        setTimeout(() => setSyncFeedback(null), 7000);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 pb-16 flex flex-col">
       {/* Offline sync monitor header */}
@@ -364,16 +427,32 @@ export default function TeacherDashboard({ teacher, onLogout }: TeacherDashboard
             )}
           </div>
 
-          <div className="flex items-center space-x-2.5">
-            <button
-              id="btn-export-csv"
-              onClick={handleExportCSV}
-              className="inline-flex items-center space-x-2 px-4 py-2.5 bg-white/50 hover:bg-white/80 text-slate-700 text-xs font-bold rounded-xl active:scale-95 transition-all cursor-pointer border border-slate-200/60 shadow-sm hover:shadow"
-              title="Download results as CSV Excel spreadsheet"
-            >
-              <Download className="w-4 h-4 text-slate-500" />
-              <span>Export CSV</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              <input 
+                type="file" 
+                accept=".xlsx,.xls,.csv" 
+                ref={fileInputRef} 
+                onChange={handleFileUpload} 
+                className="hidden" 
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={syncLoading}
+                className="hidden sm:inline-flex items-center space-x-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition-colors"
+                title="Import Marks from Excel/CSV"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Import</span>
+              </button>
+              <button
+                id="btn-export-csv"
+                onClick={handleExportCSV}
+                className="hidden sm:inline-flex items-center space-x-2 px-4 py-2.5 bg-white/50 hover:bg-white/80 text-slate-700 text-xs font-bold rounded-xl active:scale-95 transition-all cursor-pointer border border-slate-200/60 shadow-sm hover:shadow"
+                title="Download results as CSV Excel spreadsheet"
+              >
+                <Download className="w-4 h-4 text-slate-500" />
+                <span>Export CSV</span>
+              </button>
 
             <button
               id="btn-save-all-sync"

@@ -488,6 +488,20 @@ export class DBStore {
     return true;
   }
 
+  public static async bulkDeleteSchools(schoolIds: string[]): Promise<boolean> {
+    if (firestoreDb) {
+      try {
+        await Promise.all(schoolIds.map(id => deleteDoc(doc(firestoreDb, 'schools', id))));
+      } catch (e) {
+        console.error('[Firebase] Failed to bulk delete schools from Firestore:', e);
+      }
+    }
+    const db = this.read();
+    db.schools = db.schools.filter(s => !schoolIds.includes(s.School_ID));
+    this.write(db);
+    return true;
+  }
+
   // --- Save / Delete Teacher (Co-Admin / User) ---
   public static async saveTeacher(teacher: Teacher): Promise<Teacher> {
     if (firestoreDb) {
@@ -560,6 +574,20 @@ export class DBStore {
     return true;
   }
 
+  public static async bulkDeleteStudents(studentIds: string[]): Promise<boolean> {
+    if (firestoreDb) {
+      try {
+        await Promise.all(studentIds.map(id => deleteDoc(doc(firestoreDb, 'students', id))));
+      } catch (e) {
+        console.error('[Firebase] Failed to bulk delete students from Firestore:', e);
+      }
+    }
+    const db = this.read();
+    db.students = db.students.filter(s => !studentIds.includes(s.Student_ID));
+    this.write(db);
+    return true;
+  }
+
   // --- Custom Districts API ---
   public static async getDistricts(): Promise<string[]> {
     const defaultDistricts = ['Rangareddy', 'Hyderabad', 'Medchal-Malkajgiri', 'Sangareddy', 'Nalgonda', 'Warangal', 'Karimnagar'];
@@ -596,5 +624,41 @@ export class DBStore {
       }
     }
     return trimmed;
+  }
+
+  // --- Global Settings ---
+  public static async getSettings(): Promise<GlobalSettings> {
+    if (firestoreDb) {
+      try {
+        const docRef = doc(firestoreDb, 'config', 'global');
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const data = snap.data() as GlobalSettings;
+          const db = this.read();
+          db.settings = data;
+          this.write(db);
+          return data;
+        }
+      } catch (e) {
+        console.error('[Firebase] Failed to get settings from Firestore:', e);
+      }
+    }
+    const db = this.read();
+    return db.settings || { Active_Test: 'None' };
+  }
+
+  public static async saveSettings(settings: GlobalSettings): Promise<GlobalSettings> {
+    if (firestoreDb) {
+      try {
+        const docRef = doc(firestoreDb, 'config', 'global');
+        await setDoc(docRef, settings, { merge: true });
+      } catch (e) {
+        console.error('[Firebase] Failed to save settings to Firestore:', e);
+      }
+    }
+    const db = this.read();
+    db.settings = { ...db.settings, ...settings };
+    this.write(db);
+    return db.settings;
   }
 }

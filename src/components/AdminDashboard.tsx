@@ -31,8 +31,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Teacher, School, Student, TestResult, TestPhase } from '../types';
 import Logo from './Logo';
 import SchoolReportPDF from './SchoolReportPDF';
-// @ts-ignore
-import * as html2pdf from 'html2pdf.js';
 
 interface AdminDashboardProps {
   adminUser: Teacher;
@@ -110,6 +108,10 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
   const [batchImportMethod, setBatchImportMethod] = useState<'paste' | 'file'>('paste');
   const [dragActive, setDragActive] = useState(false);
   const [uploadedFileName, setUploadedFileName] = useState('');
+
+  // Bulk Delete State
+  const [selectedSchools, setSelectedSchools] = useState<Set<string>>(new Set());
+  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
 
   // Role Checks
   const isPrimaryAdmin = adminUser.Phone_Number === '8500127713' || adminUser.Phone_Number === '9908143716';
@@ -402,11 +404,41 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
       if (res.ok) {
         showFeedback('success', 'School removed successfully.');
         await fetchDashboardData();
+        setSelectedSchools(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
       } else {
         showFeedback('error', 'Failed to delete school.');
       }
     } catch (err) {
       showFeedback('error', 'Network error deleting school.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleBulkDeleteSchools = async () => {
+    if (selectedSchools.size === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedSchools.size} selected schools?`)) return;
+    
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/schools/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selectedSchools) })
+      });
+      if (res.ok) {
+        showFeedback('success', `${selectedSchools.size} schools deleted successfully.`);
+        setSelectedSchools(new Set());
+        await fetchDashboardData();
+      } else {
+        showFeedback('error', 'Failed to bulk delete schools.');
+      }
+    } catch (err) {
+      showFeedback('error', 'Network error during bulk delete.');
     } finally {
       setActionLoading(false);
     }
@@ -534,18 +566,48 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
 
   // Delete Student
   const handleDeleteStudent = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this student and unlink their records?')) return;
+    if (!window.confirm('Are you sure you want to delete this student? Their results will be preserved but orphaned.')) return;
     setActionLoading(true);
     try {
       const res = await fetch(`/api/students/${id}`, { method: 'DELETE' });
       if (res.ok) {
         showFeedback('success', 'Student removed successfully.');
         await fetchDashboardData();
+        setSelectedStudents(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
       } else {
         showFeedback('error', 'Failed to delete student.');
       }
     } catch (err) {
       showFeedback('error', 'Network error deleting student.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleBulkDeleteStudents = async () => {
+    if (selectedStudents.size === 0) return;
+    if (!window.confirm(`Are you sure you want to delete ${selectedStudents.size} selected students?`)) return;
+    
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/students/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: Array.from(selectedStudents) })
+      });
+      if (res.ok) {
+        showFeedback('success', `${selectedStudents.size} students deleted successfully.`);
+        setSelectedStudents(new Set());
+        await fetchDashboardData();
+      } else {
+        showFeedback('error', 'Failed to bulk delete students.');
+      }
+    } catch (err) {
+      showFeedback('error', 'Network error during bulk delete.');
     } finally {
       setActionLoading(false);
     }
@@ -1594,11 +1656,42 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
                 <div className="p-5 border-b border-slate-100 bg-slate-50/50">
                   <h3 className="text-xs font-black uppercase tracking-wider text-slate-400">Registered Schools Directory</h3>
                 </div>
+                
+                {selectedSchools.size > 0 && permissions.add_schools && (
+                  <div className="bg-rose-50 px-5 py-3 border-b border-rose-100 flex items-center justify-between">
+                    <span className="text-sm font-bold text-rose-800">{selectedSchools.size} schools selected</span>
+                    <button
+                      onClick={handleBulkDeleteSchools}
+                      disabled={actionLoading}
+                      className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all"
+                    >
+                      {actionLoading ? 'Deleting...' : 'Delete Selected'}
+                    </button>
+                  </div>
+                )}
 
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-slate-100">
                     <thead className="bg-slate-50">
                       <tr>
+                        {permissions.add_schools && (
+                          <th className="px-5 py-3 text-left w-10">
+                            <input
+                              type="checkbox"
+                              className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                              checked={visibleSchools.length > 0 && visibleSchools.every(s => selectedSchools.has(s.School_ID))}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedSchools(new Set([...selectedSchools, ...visibleSchools.map(s => s.School_ID)]));
+                                } else {
+                                  const next = new Set(selectedSchools);
+                                  visibleSchools.forEach(s => next.delete(s.School_ID));
+                                  setSelectedSchools(next);
+                                }
+                              }}
+                            />
+                          </th>
+                        )}
                         <th className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase">School ID</th>
                         <th className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase">School Name</th>
                         <th className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase">District</th>
@@ -1608,7 +1701,22 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">
                       {visibleSchools.map(s => (
-                        <tr key={s.School_ID} className="hover:bg-slate-50/40 transition-colors">
+                        <tr key={s.School_ID} className={`hover:bg-slate-50/40 transition-colors ${selectedSchools.has(s.School_ID) ? 'bg-indigo-50/30' : ''}`}>
+                          {permissions.add_schools && (
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <input
+                                type="checkbox"
+                                className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                                checked={selectedSchools.has(s.School_ID)}
+                                onChange={(e) => {
+                                  const next = new Set(selectedSchools);
+                                  if (e.target.checked) next.add(s.School_ID);
+                                  else next.delete(s.School_ID);
+                                  setSelectedSchools(next);
+                                }}
+                              />
+                            </td>
+                          )}
                           <td className="px-5 py-3.5 whitespace-nowrap font-mono font-bold text-slate-500">{s.School_ID}</td>
                           <td className="px-5 py-3.5 whitespace-nowrap font-extrabold text-slate-800">{s.School_Name}</td>
                           <td className="px-5 py-3.5 whitespace-nowrap">
@@ -2272,11 +2380,44 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
                     />
                   </div>
                 </div>
+                
+                {selectedStudents.size > 0 && permissions.add_students && (
+                  <div className="bg-rose-50 px-5 py-3 border-b border-rose-100 flex items-center justify-between">
+                    <span className="text-sm font-bold text-rose-800">{selectedStudents.size} students selected</span>
+                    <button
+                      onClick={handleBulkDeleteStudents}
+                      disabled={actionLoading}
+                      className="px-4 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold shadow-sm transition-all"
+                    >
+                      {actionLoading ? 'Deleting...' : 'Delete Selected'}
+                    </button>
+                  </div>
+                )}
+
 
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-slate-100">
                     <thead className="bg-slate-50">
                       <tr>
+                        {permissions.add_students && (
+                          <th className="px-5 py-3 text-left w-10">
+                            <input
+                              type="checkbox"
+                              className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                              checked={visibleStudents.length > 0 && visibleStudents.filter(s => s.Student_Name.toLowerCase().includes(searchTerm.toLowerCase()) || s.Student_ID.toLowerCase().includes(searchTerm.toLowerCase())).every(s => selectedStudents.has(s.Student_ID))}
+                              onChange={(e) => {
+                                const filtered = visibleStudents.filter(s => s.Student_Name.toLowerCase().includes(searchTerm.toLowerCase()) || s.Student_ID.toLowerCase().includes(searchTerm.toLowerCase()));
+                                if (e.target.checked) {
+                                  setSelectedStudents(new Set([...selectedStudents, ...filtered.map(s => s.Student_ID)]));
+                                } else {
+                                  const next = new Set(selectedStudents);
+                                  filtered.forEach(s => next.delete(s.Student_ID));
+                                  setSelectedStudents(next);
+                                }
+                              }}
+                            />
+                          </th>
+                        )}
                         <th className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase">Student ID</th>
                         <th className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase">Student Name</th>
                         <th className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase">Class Level</th>
@@ -2289,7 +2430,22 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
                       {visibleStudents
                         .filter(s => s.Student_Name.toLowerCase().includes(searchTerm.toLowerCase()) || s.Student_ID.toLowerCase().includes(searchTerm.toLowerCase()))
                         .map(s => (
-                          <tr key={s.Student_ID} className="hover:bg-slate-50/40 transition-colors">
+                          <tr key={s.Student_ID} className={`hover:bg-slate-50/40 transition-colors ${selectedStudents.has(s.Student_ID) ? 'bg-indigo-50/30' : ''}`}>
+                            {permissions.add_students && (
+                              <td className="px-5 py-3.5 whitespace-nowrap">
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                                  checked={selectedStudents.has(s.Student_ID)}
+                                  onChange={(e) => {
+                                    const next = new Set(selectedStudents);
+                                    if (e.target.checked) next.add(s.Student_ID);
+                                    else next.delete(s.Student_ID);
+                                    setSelectedStudents(next);
+                                  }}
+                                />
+                              </td>
+                            )}
                             <td className="px-5 py-3.5 whitespace-nowrap font-mono font-bold text-slate-500">{s.Student_ID}</td>
                             <td className="px-5 py-3.5 whitespace-nowrap font-extrabold text-slate-800">{s.Student_Name}</td>
                             <td className="px-5 py-3.5 whitespace-nowrap">
@@ -2371,28 +2527,33 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
                     }
                     setReportGenerating(true);
                     try {
-                      setTimeout(async () => {
-                        const element = document.getElementById(`pdf-report-${reportSchool}`);
-                        if (!element) {
-                          showFeedback('error', 'Template not found on screen.');
-                          setReportGenerating(false);
-                          return;
-                        }
-                        
-                        const opt = {
-                          margin:       0,
-                          filename:     `${reportSchool}_${reportPhase}_Report.pdf`,
-                          image:        { type: 'jpeg', quality: 1 },
-                          html2canvas:  { scale: 2, useCORS: true },
-                          jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
-                        };
-                        
-                        // @ts-ignore
-                        await html2pdf().set(opt).from(element).save();
-                        
-                        showFeedback('success', 'PDF downloaded successfully!');
+                      // Give React a moment to render the hidden component
+                      await new Promise(r => setTimeout(r, 500));
+                      
+                      const element = document.getElementById(`pdf-report-${reportSchool}`);
+                      if (!element) {
+                        showFeedback('error', 'Template not found on screen.');
                         setReportGenerating(false);
-                      }, 500);
+                        return;
+                      }
+                      
+                      const opt = {
+                        margin:       0,
+                        filename:     `${reportSchool}_${reportPhase}_Report.pdf`,
+                        image:        { type: 'jpeg', quality: 1 },
+                        html2canvas:  { scale: 2, useCORS: true },
+                        jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' }
+                      };
+                      
+                      // Dynamically import to avoid Vite build issues
+                      const html2pdfModule = await import('html2pdf.js');
+                      const html2pdf = html2pdfModule.default || html2pdfModule;
+                      
+                      // @ts-ignore
+                      await html2pdf().set(opt).from(element).save();
+                      
+                      showFeedback('success', 'PDF downloaded successfully!');
+                      setReportGenerating(false);
                     } catch (e) {
                       showFeedback('error', 'Error generating PDF.');
                       setReportGenerating(false);

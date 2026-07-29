@@ -210,6 +210,19 @@ async function startServer() {
     }
   });
 
+  app.post('/api/schools/bulk-delete', async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids)) {
+        return res.status(400).json({ error: 'ids must be an array' });
+      }
+      await DBStore.bulkDeleteSchools(ids);
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Teachers CRUD
   app.post('/api/teachers', async (req, res) => {
     try {
@@ -250,6 +263,19 @@ async function startServer() {
   app.delete('/api/students/:id', async (req, res) => {
     try {
       await DBStore.deleteStudent(req.params.id);
+      res.json({ success: true });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  app.post('/api/students/bulk-delete', async (req, res) => {
+    try {
+      const { ids } = req.body;
+      if (!Array.isArray(ids)) {
+        return res.status(400).json({ error: 'ids must be an array' });
+      }
+      await DBStore.bulkDeleteStudents(ids);
       res.json({ success: true });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
