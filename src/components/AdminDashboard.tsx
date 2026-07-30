@@ -2538,74 +2538,80 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
                         return;
                       }
 
-                      // Create a hidden iframe for printing
-                      const iframe = document.createElement('iframe');
-                      iframe.style.position = 'fixed';
-                      iframe.style.right = '0';
-                      iframe.style.bottom = '0';
-                      iframe.style.width = '0';
-                      iframe.style.height = '0';
-                      iframe.style.border = '0';
-                      document.body.appendChild(iframe);
+                      // We use dom-to-image because it natively supports modern CSS (like oklch in Tailwind v4)
+                      // whereas html2canvas crashes on it. We dynamically load them from CDN to avoid build issues.
+                      
+                      const loadScript = (src: string) => new Promise((resolve, reject) => {
+                        if (document.querySelector(`script[src="${src}"]`)) return resolve(true);
+                        const script = document.createElement('script');
+                        script.src = src;
+                        script.onload = resolve;
+                        script.onerror = reject;
+                        document.head.appendChild(script);
+                      });
 
-                      const iframeDoc = iframe.contentWindow?.document;
-                      if (!iframeDoc) {
-                        throw new Error("Unable to create print frame");
+                      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js');
+                      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+
+                      const domtoimage = (window as any).domtoimage;
+                      const { jsPDF } = (window as any).jspdf;
+
+                      if (!domtoimage || !jsPDF) {
+                        throw new Error("Failed to load PDF libraries from CDN.");
                       }
 
-                      // Extract all styles from the main document to ensure Tailwind works
-                      const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
-                        .map(node => node.outerHTML)
-                        .join('\n');
+                      // On mobile devices, elements might get clipped by parent containers (like overflow-hidden or max-w).
+                      // To fix this, we clone the report and attach it directly to the document.body with fixed dimensions.
+                      const cloneContainer = document.createElement('div');
+                      cloneContainer.style.position = 'absolute';
+                      cloneContainer.style.top = '-9999px';
+                      cloneContainer.style.left = '0';
+                      cloneContainer.style.width = '800px';
+                      cloneContainer.style.height = '1131px';
+                      cloneContainer.style.zIndex = '-9999';
+                      cloneContainer.style.overflow = 'visible';
 
-                      iframeDoc.open();
-                      iframeDoc.write(`
-                        <!DOCTYPE html>
-                        <html>
-                          <head>
-                            <title>${reportSchool}_${reportPhase}_Report</title>
-                            ${styles}
-                            <style>
-                              @page { margin: 0; size: A4 portrait; }
-                              body { 
-                                margin: 0; 
-                                -webkit-print-color-adjust: exact !important; 
-                                print-color-adjust: exact !important; 
-                                background: white;
-                              }
-                              /* Strip forced dimensions for printing so it fits the A4 page perfectly */
-                              #pdf-report-${reportSchool} {
-                                width: 100% !important;
-                                height: auto !important;
-                                min-height: 100vh;
-                              }
-                            </style>
-                          </head>
-                          <body>
-                            ${element.outerHTML}
-                          </body>
-                        </html>
-                      `);
-                      iframeDoc.close();
+                      const clone = element.cloneNode(true) as HTMLElement;
+                      // Ensure the clone forces its dimensions regardless of Tailwind
+                      clone.style.width = '800px';
+                      clone.style.height = '1131px';
+                      clone.style.margin = '0';
+                      
+                      cloneContainer.appendChild(clone);
+                      document.body.appendChild(cloneContainer);
 
-                      // Wait briefly for images/fonts to render in the iframe, then trigger print
-                      setTimeout(() => {
-                        try {
-                          iframe.contentWindow?.focus();
-                          iframe.contentWindow?.print();
-                          showFeedback('success', 'Print dialog opened! You can Save as PDF.');
-                        } catch (err) {
-                          console.error("Print Error", err);
-                          showFeedback('error', 'Browser blocked printing.');
-                        } finally {
-                          setReportGenerating(false);
-                          setTimeout(() => {
-                            if (document.body.contains(iframe)) {
-                              document.body.removeChild(iframe);
-                            }
-                          }, 2000);
+                      // Generate high quality JPEG from the unconstrained clone
+                      let dataUrl;
+                      try {
+                        dataUrl = await domtoimage.toJpeg(clone, { 
+                          quality: 1.0,
+                          bgcolor: '#ffffff',
+                          width: 800,
+                          height: 1131,
+                          style: {
+                            transform: 'scale(1)',
+                            transformOrigin: 'top left'
+                          }
+                        });
+                      } finally {
+                        // Always clean up the clone
+                        if (document.body.contains(cloneContainer)) {
+                          document.body.removeChild(cloneContainer);
                         }
-                      }, 1000);
+                      }
+
+                      // Create PDF with exact dimensions
+                      const pdf = new jsPDF({
+                        orientation: 'portrait',
+                        unit: 'px',
+                        format: [800, 1131]
+                      });
+                      
+                      pdf.addImage(dataUrl, 'JPEG', 0, 0, 800, 1131);
+                      pdf.save(`${reportSchool}_${reportPhase}_Report.pdf`);
+                      
+                      showFeedback('success', 'PDF downloaded successfully!');
+                      setReportGenerating(false);
 
                     } catch (e: any) {
                       console.error("PDF Error", e);

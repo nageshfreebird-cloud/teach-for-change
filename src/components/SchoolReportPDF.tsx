@@ -1,5 +1,5 @@
 import React from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList } from 'recharts';
 import { School, Student, TestResult, TestPhase } from '../types';
 
 interface SchoolReportPDFProps {
@@ -24,44 +24,33 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
     const gradeStudents = students.filter(s => s.Grade === grade);
     const totalStudentsCount = gradeStudents.length;
     
-    // Find results for these students
-    const gradeResults = results.filter(r => 
-      r.Test_Type === phase && 
+    // Find results for these students for the requested phase
+    const getPhaseResults = (targetPhase: TestPhase) => results.filter(r => 
+      r.Test_Type === targetPhase && 
       gradeStudents.some(s => s.Student_ID === r.Student_ID) &&
       r.Total_Marks !== undefined &&
       r.Know !== null && r.Read !== null && r.Spell !== null && r.Camera_Word_Read !== null && r.Camera_Word_Spell !== null
     );
 
-    const assessedCount = gradeResults.length;
+    const currentResults = getPhaseResults(phase);
+    const assessedCount = currentResults.length;
 
-    if (assessedCount === 0) {
-      return { assessedCount, totalStudentsCount, avgTotal: 0, chartData: [] };
-    }
+    // Helper to calculate average for a specific parameter across a set of results
+    const getAvg = (res: TestResult[], key: keyof TestResult) => {
+      if (res.length === 0) return 0;
+      const sum = res.reduce((acc, r) => acc + (Number(r[key]) || 0), 0);
+      return Number((sum / res.length).toFixed(2));
+    };
 
-    let sumKnow = 0;
-    let sumRead = 0;
-    let sumSpell = 0;
-    let sumCWR = 0;
-    let sumCWS = 0;
-    let sumTotal = 0;
+    // Current phase averages
+    const avgKnow = getAvg(currentResults, 'Know');
+    const avgRead = getAvg(currentResults, 'Read');
+    const avgSpell = getAvg(currentResults, 'Spell');
+    const avgCWR = getAvg(currentResults, 'Camera_Word_Read');
+    const avgCWS = getAvg(currentResults, 'Camera_Word_Spell');
+    const avgTotal = getAvg(currentResults, 'Total_Marks');
 
-    gradeResults.forEach(r => {
-      sumKnow += r.Know || 0;
-      sumRead += r.Read || 0;
-      sumSpell += r.Spell || 0;
-      sumCWR += r.Camera_Word_Read || 0;
-      sumCWS += r.Camera_Word_Spell || 0;
-      sumTotal += r.Total_Marks || 0;
-    });
-
-    const avgKnow = sumKnow / assessedCount;
-    const avgRead = sumRead / assessedCount;
-    const avgSpell = sumSpell / assessedCount;
-    const avgCWR = sumCWR / assessedCount;
-    const avgCWS = sumCWS / assessedCount;
-    const avgTotal = sumTotal / assessedCount;
-
-    // For the pie chart, we want the contribution of each component to the total average score
+    // For the pie chart (Baseline only)
     const chartData = [
       { name: 'KNOW', value: avgKnow, color: COLORS.Know },
       { name: 'READ', value: avgRead, color: COLORS.Read },
@@ -70,7 +59,48 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
       { name: 'CAMERA WORD SPELL', value: avgCWS, color: COLORS.CWS }
     ];
 
-    return { assessedCount, totalStudentsCount, avgTotal: avgTotal.toFixed(2), chartData };
+    // For the Bar Chart (Midline/Endline comparison)
+    const barData = [];
+    if (phase !== 'Baseline') {
+      const baselineResults = getPhaseResults('Baseline');
+      const midlineResults = phase === 'Endline' ? getPhaseResults('Midline') : [];
+
+      const params = [
+        { key: 'Know', label: 'Phonics (10)' },
+        { key: 'Read', label: 'Phonological\nAwareness\n(10)' },
+        { key: 'Spell', label: 'Vocabulary\n(10)' },
+        { key: 'Camera_Word_Read', label: 'Story Reading\n(10)' },
+        { key: 'Camera_Word_Spell', label: 'Make\nsentences (10)' }
+      ];
+
+      params.forEach(p => {
+        const dataPoint: any = { name: p.label };
+        
+        // Always include baseline if available
+        if (baselineResults.length > 0) {
+          dataPoint.Baseline = getAvg(baselineResults, p.key as keyof TestResult);
+        }
+
+        if (phase === 'Midline') {
+          dataPoint.Midline = getAvg(currentResults, p.key as keyof TestResult);
+        } else if (phase === 'Endline') {
+          if (midlineResults.length > 0) {
+            dataPoint.Midline = getAvg(midlineResults, p.key as keyof TestResult);
+          }
+          dataPoint.Endline = getAvg(currentResults, p.key as keyof TestResult);
+        }
+        
+        barData.push(dataPoint);
+      });
+    }
+
+    return { 
+      assessedCount, 
+      totalStudentsCount, 
+      avgTotal: avgTotal.toFixed(2), 
+      chartData,
+      barData
+    };
   };
 
   const grade3 = calculateGradeStats(3);
@@ -130,6 +160,65 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
     );
   };
 
+  const CustomizedAxisTick = (props: any) => {
+    const { x, y, payload } = props;
+    const lines = payload.value.split('\n');
+    return (
+      <g transform={`translate(${x},${y})`}>
+        {lines.map((line: string, index: number) => (
+          <text key={index} x={0} y={10 + index * 10} textAnchor="middle" fill="#000" fontSize={7}>
+            {line}
+          </text>
+        ))}
+      </g>
+    );
+  };
+
+  const renderBarChart = (stats: any) => {
+    if (stats.assessedCount === 0) {
+      return (
+        <div className="flex flex-col items-center justify-center h-48 bg-slate-50 border border-slate-200 mt-4 mx-4">
+          <p className="text-sm font-bold text-slate-400">No {phase} data for this grade</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex flex-col items-center pt-2 pb-4">
+        <div className="w-full h-56 relative px-2 mt-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={stats.barData}
+              margin={{ top: 15, right: 5, left: -25, bottom: 20 }}
+              barGap={0}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="name" interval={0} tick={<CustomizedAxisTick />} axisLine={{ stroke: '#000' }} tickLine={false} />
+              <YAxis domain={[0, 8]} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} tickCount={5} />
+              <Legend verticalAlign="top" height={20} iconType="square" iconSize={8} wrapperStyle={{ fontSize: '9px', fontWeight: 'bold' }} />
+              
+              {stats.barData[0] && stats.barData[0].Baseline !== undefined && (
+                <Bar dataKey="Baseline" fill="#4285F4" name="BASELINE">
+                  <LabelList dataKey="Baseline" position="top" fill="#4285F4" fontSize={8} formatter={(v: number) => v.toFixed(2)} />
+                </Bar>
+              )}
+              {stats.barData[0] && stats.barData[0].Midline !== undefined && (
+                <Bar dataKey="Midline" fill="#EA4335" name="MIDLINE">
+                  <LabelList dataKey="Midline" position="top" fill="#EA4335" fontSize={8} formatter={(v: number) => v.toFixed(2)} />
+                </Bar>
+              )}
+              {stats.barData[0] && stats.barData[0].Endline !== undefined && (
+                <Bar dataKey="Endline" fill="#34A853" name="ENDLINE">
+                  <LabelList dataKey="Endline" position="top" fill="#34A853" fontSize={8} formatter={(v: number) => v.toFixed(2)} />
+                </Bar>
+              )}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    );
+  };
+
   const getSchoolTitle = () => {
     if (school.School_Full_Name && school.School_Full_Name.trim() !== '') {
       return `${school.School_Full_Name}, ${school.Block_or_Village !== 'N/A' ? school.Block_or_Village + ',' : ''}`;
@@ -140,12 +229,12 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
   const shortName = school.School_Name.replace(/\s+/g, '_').toUpperCase();
 
   return (
-    <div className="bg-white text-black p-8 font-serif w-[800px] min-h-[1131px] mx-auto box-border relative" id={`pdf-report-${school.School_ID}`}>
+    <div className="bg-white text-black p-8 font-serif w-[800px] h-[1131px] mx-auto box-border relative overflow-hidden" id={`pdf-report-${school.School_ID}`}>
       {/* --- HEADER --- */}
       <div className="text-center mb-8 relative">
         <div className="absolute right-0 top-0">
           <div className="w-24 h-auto">
-            <img src="/logo.png" alt="Teach For Change" className="w-full h-auto object-contain" />
+            <img src="/pdf-logo.png" alt="Teach For Change" className="w-full h-auto object-contain" />
           </div>
         </div>
 
@@ -161,9 +250,11 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
       {/* --- ABOUT --- */}
       <div className="mb-6 px-4">
         <p className="text-base italic leading-relaxed text-justify">
-          <strong className="font-bold">About:</strong> The {phase} Assessment is conducted in the beginning of the smart 
-          classroom program of Teach For change. In this assessment, the students are 
-          individually assessed in 5 parameters of English Language Literacy.
+          <strong className="font-bold">About:</strong> {
+            phase === 'Baseline' ? "The Baseline Assessment is conducted in the beginning of the smart classroom program of Teach For Change. In this assessment, the students are individually assessed in 5 parameters of English Language Literacy." :
+            phase === 'Midline' ? "The Midline Assessment is conducted in the mid of year of the smart classroom program of Teach For Change. In this assessment, the students are individually assessed in 5 parameters of English Language Literacy." :
+            "The Endline Assessment is conducted at the end of the year of the smart classroom program of Teach For Change. In this assessment, the students are individually assessed in 5 parameters of English Language Literacy."
+          }
         </p>
       </div>
 
@@ -179,10 +270,16 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
           <div className="bg-[#A9D18E] py-2 text-center border-b border-white">
             <h3 className="font-bold text-lg">Grade 3</h3>
           </div>
-          {renderPieChart(grade3, `${shortName}_3rd Class ${phase} Test_Result`)}
+          {phase === 'Baseline' ? renderPieChart(grade3, `${shortName}_3rd Class ${phase} Test_Result`) : renderBarChart(grade3)}
           <div className="px-4 text-center pb-4 text-[13px] italic">
-            Fig 1: A total of {grade3.assessedCount} students were assessed, the average<br/>
-            English Language Literacy level is {grade3.avgTotal}
+            {phase === 'Endline' ? (
+              <>Fig 1: A total of {grade3.assessedCount} students were assessed, the English<br/>
+              Language Literacy level is increased from<br/>
+              baseline to endline {grade3.barData[0] && grade3.barData[0].Baseline ? ((grade3.avgTotal - grade3.barData[0].Baseline) / grade3.barData[0].Baseline * 100).toFixed(0) : 0}%</>
+            ) : (
+              <>Fig 1: A total of {grade3.assessedCount} students were assessed, the average<br/>
+              English Language Literacy level is {grade3.avgTotal}</>
+            )}
           </div>
         </div>
 
@@ -191,10 +288,16 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
           <div className="bg-[#A9D18E] py-2 text-center border-b border-white border-l">
             <h3 className="font-bold text-lg">Grade 4</h3>
           </div>
-          {renderPieChart(grade4, `${shortName}_4th Class ${phase} Test_Result`)}
+          {phase === 'Baseline' ? renderPieChart(grade4, `${shortName}_4th Class ${phase} Test_Result`) : renderBarChart(grade4)}
           <div className="px-4 text-center pb-4 text-[13px] italic">
-            Fig 2: A total of {grade4.assessedCount} students were assessed, the average<br/>
-            English Language Literacy level is {grade4.avgTotal}
+            {phase === 'Endline' ? (
+              <>Fig 2: A total of {grade4.assessedCount} students were assessed, the English<br/>
+              Language Literacy level is increased from<br/>
+              baseline to endline {grade4.barData[0] && grade4.barData[0].Baseline ? ((grade4.avgTotal - grade4.barData[0].Baseline) / grade4.barData[0].Baseline * 100).toFixed(0) : 0}%</>
+            ) : (
+              <>Fig 2: A total of {grade4.assessedCount} students were assessed, the average<br/>
+              English Language Literacy level is {grade4.avgTotal}</>
+            )}
           </div>
         </div>
       </div>
@@ -207,37 +310,61 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
           <div className="bg-[#A9D18E] py-2 text-center border-b border-white">
             <h3 className="font-bold text-lg">Grade 5</h3>
           </div>
-          {renderPieChart(grade5, `${shortName}_5th Class ${phase} Test_Result`)}
+          {phase === 'Baseline' ? renderPieChart(grade5, `${shortName}_5th Class ${phase} Test_Result`) : renderBarChart(grade5)}
           <div className="px-4 text-center pb-4 text-[13px] italic">
-            Fig 3: A total of {grade5.assessedCount} students were assessed, the average<br/>
-            English Language Literacy level is {grade5.avgTotal}
+            {phase === 'Endline' ? (
+              <>Fig 3: A total of {grade5.assessedCount} students were assessed, the English<br/>
+              Language Literacy level is increased from<br/>
+              baseline to endline {grade5.barData[0] && grade5.barData[0].Baseline ? ((grade5.avgTotal - grade5.barData[0].Baseline) / grade5.barData[0].Baseline * 100).toFixed(0) : 0}%</>
+            ) : (
+              <>Fig 3: A total of {grade5.assessedCount} students were assessed, the average<br/>
+              English Language Literacy level is {grade5.avgTotal}</>
+            )}
           </div>
         </div>
 
         {/* Next Steps Column */}
         <div>
           <div className="bg-[#FFD966] py-2 text-center border-b border-white border-l">
-            <h3 className="font-bold text-lg">Next Steps</h3>
+            <h3 className="font-bold text-lg">{phase === 'Endline' ? 'THANK YOU' : 'Next Steps'}</h3>
           </div>
-          <div className="p-8 pt-12 space-y-8">
-            {/* 4 lines for writing */}
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 rounded-full bg-black shrink-0"></div>
-              <div className="w-full border-b border-slate-400"></div>
+          
+          {phase === 'Baseline' ? (
+            <div className="p-8 pt-12 space-y-8">
+              {/* 4 lines for writing */}
+              <div className="flex items-center space-x-3">
+                <div className="w-2 h-2 rounded-full bg-black shrink-0"></div>
+                <div className="w-full border-b border-slate-400"></div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-2 h-2 rounded-full bg-black shrink-0"></div>
+                <div className="w-full border-b border-slate-400"></div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-2 h-2 rounded-full bg-black shrink-0"></div>
+                <div className="w-full border-b border-slate-400"></div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <div className="w-2 h-2 rounded-full bg-black shrink-0"></div>
+                <div className="w-full border-b border-slate-400"></div>
+              </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 rounded-full bg-black shrink-0"></div>
-              <div className="w-full border-b border-slate-400"></div>
+          ) : phase === 'Midline' ? (
+            <div className="p-8 pt-10 space-y-8 text-[15px]">
+              <p>Focus on phonics and small group help.</p>
+              <div className="w-full border-b border-slate-300"></div>
+              <p>Make classrooms rich with reading books.</p>
+              <p>Train teachers on effective ESL methods.</p>
+              <p>Set clear goals and assess progress often</p>
             </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 rounded-full bg-black shrink-0"></div>
-              <div className="w-full border-b border-slate-400"></div>
+          ) : (
+            <div className="p-6 pt-8 text-[16px] leading-relaxed font-bold text-justify">
+              Thank you very much for your valuable support throughout this year. We truly 
+              appreciate your collaboration and guidance. As we move forward, we look 
+              forward to working together in the coming year to further enhance English 
+              language skills among students in Grades 3, 4, and 5.
             </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 rounded-full bg-black shrink-0"></div>
-              <div className="w-full border-b border-slate-400"></div>
-            </div>
-          </div>
+          )}
         </div>
 
       </div>
