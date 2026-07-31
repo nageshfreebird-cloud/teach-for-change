@@ -245,9 +245,9 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
 
   return (
     <div className="bg-white text-black p-6 w-[210mm] h-[297mm] mx-auto box-border relative overflow-hidden" id={`pdf-report-${school.School_ID}`} style={{ fontFamily: "'Times New Roman', Times, serif" }}>
-      {/* Absolute positioning for exact physical logo placement (180mm left, 10mm top) */}
-      <div className="absolute left-[calc(180mm-24px)] top-[calc(10mm-24px)] w-[18.2mm] h-[23.5mm]">
-        <img src="/pdf-logo.png" alt="Teach For Change" className="w-full h-full object-fill" />
+      {/* Absolute positioning for exact physical logo placement, visibly increased size */}
+      <div className="absolute left-[calc(170mm-24px)] top-[calc(5mm-24px)] w-[30mm] h-[30mm]">
+        <img src="/pdf-logo.png" alt="Teach For Change" className="w-full h-full object-contain" />
       </div>
 
       {/* --- HEADER --- */}
