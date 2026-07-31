@@ -229,14 +229,14 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
   const shortName = school.School_Name.replace(/\s+/g, '_').toUpperCase();
 
   const getDynamicTitleSize = (text: string) => {
-    // Mathematical formula to perfectly stretch font size across the 145mm (3-17.5cm) bounds without overflowing.
-    const size = 950 / Math.max(text.length, 1);
+    // Mathematical formula to perfectly stretch font size across the 145mm bounds without overflowing.
+    const size = 800 / Math.max(text.length, 1);
     return `${Math.min(Math.max(size, 10), 24)}px`;
   };
 
   const getDynamicSubtitleSize = (text: string) => {
-    // Mathematical formula to perfectly stretch font size across the 110mm (4-15cm) bounds without overflowing.
-    const size = 720 / Math.max(text.length, 1);
+    // Mathematical formula to perfectly stretch font size across the 110mm bounds without overflowing.
+    const size = 600 / Math.max(text.length, 1);
     return `${Math.min(Math.max(size, 9), 18)}px`;
   };
 
@@ -251,13 +251,13 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
       </div>
 
       {/* --- HEADER --- */}
-      {/* Absolute positioning for 3-17.5cm (Title) and 4-15cm (Subtitle) bounds */}
-      <div className="absolute left-[calc(30mm-24px)] top-[calc(12mm-24px)] w-[145mm] text-center">
+      {/* Absolute positioning perfectly centered horizontally on the page, retaining 145mm and 110mm bounding widths */}
+      <div className="absolute left-1/2 -translate-x-1/2 top-[calc(12mm-24px)] w-[145mm] text-center">
         <h1 className="font-bold italic whitespace-nowrap overflow-hidden" style={{ fontSize: getDynamicTitleSize(schoolTitleText) }}>
           {schoolTitleText}
         </h1>
       </div>
-      <div className="absolute left-[calc(40mm-24px)] top-[calc(22mm-24px)] w-[110mm] text-center">
+      <div className="absolute left-1/2 -translate-x-1/2 top-[calc(22mm-24px)] w-[110mm] text-center">
         <h2 className="font-bold italic whitespace-nowrap overflow-hidden" style={{ fontSize: getDynamicSubtitleSize(districtText) }}>
           {districtText}
         </h2>
