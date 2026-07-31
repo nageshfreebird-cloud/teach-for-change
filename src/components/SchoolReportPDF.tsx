@@ -229,19 +229,16 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
   const shortName = school.School_Name.replace(/\s+/g, '_').toUpperCase();
 
   const getDynamicTitleSize = (text: string) => {
-    const len = text.length;
-    if (len < 55) return '18px';
-    if (len < 70) return '16px';
-    if (len < 85) return '14px';
-    return '12px';
+    // Mathematical formula to perfectly stretch font size across the 140mm (2-16cm) bounds.
+    // Max cap 26px to avoid becoming comically huge, min cap 10px.
+    const size = 950 / Math.max(text.length, 1);
+    return `${Math.min(Math.max(size, 10), 26)}px`;
   };
 
   const getDynamicSubtitleSize = (text: string) => {
-    const len = text.length;
-    if (len < 40) return '15px';
-    if (len < 50) return '13px';
-    if (len < 65) return '11px';
-    return '10px';
+    // Mathematical formula to perfectly stretch font size across the 100mm (4-14cm) bounds.
+    const size = 680 / Math.max(text.length, 1);
+    return `${Math.min(Math.max(size, 9), 20)}px`;
   };
 
   const schoolTitleText = getSchoolTitle();
@@ -256,7 +253,7 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
           {schoolTitleText}
         </h1>
       </div>
-      <div className="absolute left-[40mm] top-[52px] w-[100mm] text-center">
+      <div className="absolute left-[40mm] top-[58px] w-[100mm] text-center">
         <h2 className="font-bold italic whitespace-nowrap overflow-hidden" style={{ fontSize: getDynamicSubtitleSize(districtText) }}>
           {districtText}
         </h2>
@@ -267,7 +264,7 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
         <img src="/pdf-logo.png" alt="Teach For Change" className="w-full h-full object-contain" />
       </div>
 
-      <div className="text-center mb-6 relative mt-[65px]">
+      <div className="text-center mb-8 relative mt-[75px]">
         <h3 className="font-bold mt-4 mb-2" style={{ fontSize: '13px' }}>{phase} Report</h3>
         <p className="text-right mr-16" style={{ fontSize: '14px' }}>
           - <span className="font-normal">By</span> <span className="font-bold">Teach For Change Trust</span>
@@ -285,7 +282,7 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
         </p>
       </div>
 
-      <div className="mb-2 px-4">
+      <div className="mb-5 px-4">
         <p className="text-[17px] font-bold">Results: The grade wise details:</p>
       </div>
 
@@ -330,7 +327,7 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
       </div>
 
       {/* --- GRADE 5 & NEXT STEPS GRID --- */}
-      <div className="grid grid-cols-2 gap-0 border-t border-slate-300">
+      <div className="grid grid-cols-2 gap-0 border-t border-slate-300 mt-6">
         
         {/* Grade 5 Column */}
         <div className="border-r border-slate-300">
