@@ -149,6 +149,7 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
   const [reportSchool, setReportSchool] = useState<string>('');
   const [reportPhase, setReportPhase] = useState<TestPhase>('Baseline');
   const [reportGenerating, setReportGenerating] = useState(false);
+  const [isPrintingNative, setIsPrintingNative] = useState(false);
 
   useEffect(() => {
     fetchDashboardData();
@@ -1078,13 +1079,7 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex-1 flex flex-col justify-center items-center py-24">
-          <div className="w-12 h-12 border-4 border-teal-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs text-slate-500 mt-4 font-bold tracking-widest uppercase">Fetching encrypted data cloud...</p>
-        </div>
-      ) : (
-        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           
           {/* TAB 1: ASSESSMENTS (READ ONLY STATISTICS & SEARCH LOGS) */}
           {activeTab === 'assessments' && (
@@ -2525,123 +2520,30 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
                       showFeedback('error', 'Please select a school first.');
                       return;
                     }
-                    setReportGenerating(true);
-                    try {
-                      // Give React a moment to render the hidden component
-                      await new Promise(r => setTimeout(r, 500));
+                    setIsPrintingNative(true);
+                    
+                    // Give React a moment to render the full screen PDF layout and recharts to animate/measure
+                    setTimeout(() => {
+                      window.print();
                       
-                      // Extract the element to print
-                      const element = document.getElementById(`pdf-report-${reportSchool}`);
-                      if (!element) {
-                        showFeedback('error', 'Template not found on screen.');
-                        setReportGenerating(false);
-                        return;
-                      }
-
-                      // We use dom-to-image because it natively supports modern CSS (like oklch in Tailwind v4)
-                      // whereas html2canvas crashes on it. We dynamically load them from CDN to avoid build issues.
-                      
-                      const loadScript = (src: string) => new Promise((resolve, reject) => {
-                        if (document.querySelector(`script[src="${src}"]`)) return resolve(true);
-                        const script = document.createElement('script');
-                        script.src = src;
-                        script.onload = resolve;
-                        script.onerror = reject;
-                        document.head.appendChild(script);
-                      });
-
-                      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/dom-to-image/2.6.0/dom-to-image.min.js');
-                      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-
-                      const domtoimage = (window as any).domtoimage;
-                      const { jsPDF } = (window as any).jspdf;
-
-                      if (!domtoimage || !jsPDF) {
-                        throw new Error("Failed to load PDF libraries from CDN.");
-                      }
-
-                      // On mobile devices, elements might get clipped by parent containers (like overflow-hidden or max-w).
-                      // To fix this, we clone the report and attach it directly to the document.body with fixed dimensions.
-                      const cloneContainer = document.createElement('div');
-                      cloneContainer.style.position = 'absolute';
-                      cloneContainer.style.top = '-9999px';
-                      cloneContainer.style.left = '0';
-                      cloneContainer.style.width = '800px';
-                      cloneContainer.style.height = '1131px';
-                      cloneContainer.style.zIndex = '-9999';
-                      cloneContainer.style.overflow = 'visible';
-
-                      const clone = element.cloneNode(true) as HTMLElement;
-                      // Ensure the clone forces its dimensions regardless of Tailwind
-                      clone.style.width = '800px';
-                      clone.style.height = '1131px';
-                      clone.style.margin = '0';
-                      
-                      cloneContainer.appendChild(clone);
-                      document.body.appendChild(cloneContainer);
-
-                      // Generate high quality JPEG from the unconstrained clone
-                      let dataUrl;
-                      try {
-                        dataUrl = await domtoimage.toJpeg(clone, { 
-                          quality: 1.0,
-                          bgcolor: '#ffffff',
-                          width: 800,
-                          height: 1131,
-                          style: {
-                            transform: 'scale(1)',
-                            transformOrigin: 'top left'
-                          }
-                        });
-                      } finally {
-                        // Always clean up the clone
-                        if (document.body.contains(cloneContainer)) {
-                          document.body.removeChild(cloneContainer);
-                        }
-                      }
-
-                      // Create PDF with exact dimensions
-                      const pdf = new jsPDF({
-                        orientation: 'portrait',
-                        unit: 'px',
-                        format: [800, 1131]
-                      });
-                      
-                      pdf.addImage(dataUrl, 'JPEG', 0, 0, 800, 1131);
-                      pdf.save(`${reportSchool}_${reportPhase}_Report.pdf`);
-                      
-                      showFeedback('success', 'PDF downloaded successfully!');
-                      setReportGenerating(false);
-
-                    } catch (e: any) {
-                      console.error("PDF Error", e);
-                      showFeedback('error', 'Error generating PDF: ' + (e.message || String(e)));
-                      setReportGenerating(false);
-                    }
+                      // Most desktop browsers block execution during print dialog, so this runs after it closes.
+                      // On mobile, it might run immediately, which is also fine (it flashes back).
+                      setIsPrintingNative(false);
+                    }, 500);
                   }}
-                  disabled={!reportSchool || reportGenerating}
+                  disabled={!reportSchool || isPrintingNative}
                   className="w-full py-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl text-sm font-black shadow-lg disabled:opacity-50 active:scale-[0.98] transition-all flex items-center justify-center space-x-2"
                 >
-                  {reportGenerating ? (
+                  {isPrintingNative ? (
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <Download className="w-5 h-5" />
                   )}
-                  <span>{reportGenerating ? 'Generating PDF...' : 'Download PDF Report'}</span>
+                  <span>{isPrintingNative ? 'Preparing PDF...' : 'Download PDF Report'}</span>
                 </button>
               </div>
 
-              {/* Hidden template for PDF generation */}
-              {reportSchool && (
-                <div style={{ position: 'absolute', top: '-9999px', left: '-9999px', zIndex: -1 }}>
-                  <SchoolReportPDF
-                    school={data.schools.find(s => s.School_ID === reportSchool)!}
-                    phase={reportPhase}
-                    students={data.students}
-                    results={data.results}
-                  />
-                </div>
-              )}
+
             </div>
           )}
 

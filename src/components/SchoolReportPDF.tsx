@@ -143,7 +143,7 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
                 data={stats.chartData}
                 cx="50%"
                 cy="50%"
-                outerRadius={80}
+                outerRadius={70}
                 dataKey="value"
                 labelLine={true}
                 label={renderCustomizedLabel}
