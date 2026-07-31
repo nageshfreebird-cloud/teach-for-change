@@ -2548,8 +2548,6 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
           )}
 
         </main>
-      )}
-
     </div>
   );
 }
