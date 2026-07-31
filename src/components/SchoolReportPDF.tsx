@@ -228,6 +228,24 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
 
   const shortName = school.School_Name.replace(/\s+/g, '_').toUpperCase();
 
+  const getDynamicTitleSize = (text: string) => {
+    const len = text.length;
+    if (len < 65) return '18px';
+    if (len < 80) return '16px';
+    if (len < 95) return '14px';
+    return '12px';
+  };
+
+  const getDynamicSubtitleSize = (text: string) => {
+    const len = text.length;
+    if (len < 75) return '15px';
+    if (len < 90) return '13px';
+    return '11px';
+  };
+
+  const schoolTitleText = getSchoolTitle();
+  const districtText = `${school.Mandal ? `${school.Mandal} Mandal, ` : ''}${school.District} District.`;
+
   return (
     <div className="bg-white text-black p-6 w-[210mm] h-[297mm] mx-auto box-border relative overflow-hidden" id={`pdf-report-${school.School_ID}`} style={{ fontFamily: "'Times New Roman', Times, serif" }}>
       {/* --- HEADER --- */}
@@ -238,11 +256,11 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
           </div>
         </div>
 
-        <h1 className="font-bold italic mb-1 px-16 truncate" style={{ fontSize: getSchoolTitle().length > 40 ? '16px' : '18px' }}>
-          {getSchoolTitle()}
+        <h1 className="font-bold italic mb-1 px-16 whitespace-nowrap overflow-hidden" style={{ fontSize: getDynamicTitleSize(schoolTitleText) }}>
+          {schoolTitleText}
         </h1>
-        <h2 className="font-bold italic mb-2 truncate" style={{ fontSize: '15px' }}>
-          {school.Mandal ? `${school.Mandal} Mandal, ` : ''}{school.District} District.
+        <h2 className="font-bold italic mb-2 whitespace-nowrap overflow-hidden" style={{ fontSize: getDynamicSubtitleSize(districtText) }}>
+          {districtText}
         </h2>
         
         <h3 className="font-bold mt-4 mb-2" style={{ fontSize: '13px' }}>{phase} Report</h3>
