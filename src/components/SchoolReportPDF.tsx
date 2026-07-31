@@ -136,7 +136,7 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
     return (
       <div className="flex flex-col items-center pt-1 pb-2">
         <h4 className="text-sm font-bold italic mb-2">{title}</h4>
-        <div className="w-full h-52 relative">
+        <div className="w-[328px] h-[195px] relative mx-auto">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart style={{ overflow: 'visible' }}>
               <Pie
@@ -185,7 +185,7 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
 
     return (
       <div className="flex flex-col items-center pt-1 pb-2">
-        <div className="w-full h-52 relative px-2 mt-2">
+        <div className="w-[328px] h-[195px] relative mx-auto px-2 mt-2">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={stats.barData}
@@ -229,7 +229,7 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
   const shortName = school.School_Name.replace(/\s+/g, '_').toUpperCase();
 
   return (
-    <div className="bg-white text-black p-8 font-serif w-[800px] h-[1131px] mx-auto box-border relative overflow-hidden" id={`pdf-report-${school.School_ID}`}>
+    <div className="bg-white text-black p-6 font-serif w-[210mm] h-[297mm] mx-auto box-border relative overflow-hidden" id={`pdf-report-${school.School_ID}`}>
       {/* --- HEADER --- */}
       <div className="text-center mb-6 relative">
         <div className="absolute right-4 top-2">
