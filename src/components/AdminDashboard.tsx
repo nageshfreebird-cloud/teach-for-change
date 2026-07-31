@@ -959,6 +959,25 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
     document.body.removeChild(link);
   };
 
+  if (isPrintingNative && reportSchool) {
+    return (
+      <div className="bg-white m-0 p-0 w-full h-full min-h-screen flex justify-center items-start">
+        <style>
+          {`
+            @page { size: A4 portrait; margin: 0; }
+            body { margin: 0; padding: 0; background: white; }
+          `}
+        </style>
+        <SchoolReportPDF
+          school={data.schools.find(s => s.School_ID === reportSchool)!}
+          phase={reportPhase}
+          students={data.students}
+          results={data.results}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       
@@ -1079,7 +1098,13 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
         </div>
       </div>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {loading ? (
+        <div className="flex-1 flex flex-col justify-center items-center py-24">
+          <div className="w-12 h-12 border-4 border-teal-600 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs text-slate-500 mt-4 font-bold tracking-widest uppercase">Fetching encrypted data cloud...</p>
+        </div>
+      ) : (
+        <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           
           {/* TAB 1: ASSESSMENTS (READ ONLY STATISTICS & SEARCH LOGS) */}
           {activeTab === 'assessments' && (
@@ -2548,6 +2573,7 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
           )}
 
         </main>
+      )}
     </div>
   );
 }
