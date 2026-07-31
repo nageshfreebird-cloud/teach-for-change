@@ -121,14 +121,14 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
       if (value === 0) return null;
       const RADIAN = Math.PI / 180;
       // Position label closer to avoid clipping
-      const radius = innerRadius + (outerRadius - innerRadius) + 25; 
+      const radius = innerRadius + (outerRadius - innerRadius) + 15; 
       const x = cx + radius * Math.cos(-midAngle * RADIAN);
       const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
       return (
         <text x={x} y={y} fill="black" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
-          <tspan x={x} dy="-0.5em" fontSize="8.5" fontWeight="bold">{name}</tspan>
-          <tspan x={x} dy="1.2em" fontSize="8.5" fill="#666">{(percent * 100).toFixed(1)}%</tspan>
+          <tspan x={x} dy="-0.5em" fontSize="7.5" fontWeight="bold">{name}</tspan>
+          <tspan x={x} dy="1.2em" fontSize="7.5" fill="#666">{(percent * 100).toFixed(1)}%</tspan>
         </text>
       );
     };
@@ -143,7 +143,7 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
                 data={stats.chartData}
                 cx="50%"
                 cy="50%"
-                outerRadius={55}
+                outerRadius={88}
                 dataKey="value"
                 labelLine={true}
                 label={renderCustomizedLabel}
@@ -229,7 +229,7 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
   const shortName = school.School_Name.replace(/\s+/g, '_').toUpperCase();
 
   return (
-    <div className="bg-white text-black p-6 font-serif w-[210mm] h-[297mm] mx-auto box-border relative overflow-hidden" id={`pdf-report-${school.School_ID}`}>
+    <div className="bg-white text-black p-6 w-[210mm] h-[297mm] mx-auto box-border relative overflow-hidden" id={`pdf-report-${school.School_ID}`} style={{ fontFamily: "'Times New Roman', Times, serif" }}>
       {/* --- HEADER --- */}
       <div className="text-center mb-6 relative">
         <div className="absolute right-4 top-2">
@@ -238,13 +238,17 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
           </div>
         </div>
 
-        <h1 className="text-[26px] font-bold italic mb-1 px-16">{getSchoolTitle()}</h1>
-        <h2 className="text-[20px] font-bold italic mb-2">
+        <h1 className="font-bold italic mb-1 px-16 truncate" style={{ fontSize: getSchoolTitle().length > 40 ? '16px' : '18px' }}>
+          {getSchoolTitle()}
+        </h1>
+        <h2 className="font-bold italic mb-2 truncate" style={{ fontSize: '15px' }}>
           {school.Mandal ? `${school.Mandal} Mandal, ` : ''}{school.District} District.
         </h2>
         
-        <h3 className="text-[24px] font-bold mt-4 mb-2">{phase} Report</h3>
-        <p className="text-right text-[22px] font-bold mr-16">- By Teach For Change Trust</p>
+        <h3 className="font-bold mt-4 mb-2" style={{ fontSize: '13px' }}>{phase} Report</h3>
+        <p className="text-right mr-16" style={{ fontSize: '14px' }}>
+          - <span className="font-normal">By</span> <span className="font-bold">Teach For Change Trust</span>
+        </p>
       </div>
 
       {/* --- ABOUT --- */}
