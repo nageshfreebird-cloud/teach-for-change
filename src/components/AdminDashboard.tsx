@@ -965,7 +965,7 @@ export default function AdminDashboard({ adminUser, onLogout }: AdminDashboardPr
         <style>
           {`
             @page { size: A4 portrait; margin: 0; }
-            body { margin: 0; padding: 0; background: white; }
+            body { margin: 0; padding: 0; background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           `}
         </style>
         <SchoolReportPDF

@@ -120,30 +120,30 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
     const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value }: any) => {
       if (value === 0) return null;
       const RADIAN = Math.PI / 180;
-      // Position label slightly outside the pie
-      const radius = innerRadius + (outerRadius - innerRadius) + 40; 
+      // Position label closer to avoid clipping
+      const radius = innerRadius + (outerRadius - innerRadius) + 25; 
       const x = cx + radius * Math.cos(-midAngle * RADIAN);
       const y = cy + radius * Math.sin(-midAngle * RADIAN);
 
       return (
         <text x={x} y={y} fill="black" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
-          <tspan x={x} dy="-0.5em" fontSize="9" fontWeight="bold">{name}</tspan>
-          <tspan x={x} dy="1.2em" fontSize="9" fill="#666">{(percent * 100).toFixed(1)}%</tspan>
+          <tspan x={x} dy="-0.5em" fontSize="8.5" fontWeight="bold">{name}</tspan>
+          <tspan x={x} dy="1.2em" fontSize="8.5" fill="#666">{(percent * 100).toFixed(1)}%</tspan>
         </text>
       );
     };
 
     return (
-      <div className="flex flex-col items-center pt-2 pb-4">
-        <h4 className="text-sm font-bold italic mb-4">{title}</h4>
-        <div className="w-full h-56 relative">
+      <div className="flex flex-col items-center pt-1 pb-2">
+        <h4 className="text-sm font-bold italic mb-2">{title}</h4>
+        <div className="w-full h-52 relative">
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
+            <PieChart style={{ overflow: 'visible' }}>
               <Pie
                 data={stats.chartData}
                 cx="50%"
                 cy="50%"
-                outerRadius={70}
+                outerRadius={55}
                 dataKey="value"
                 labelLine={true}
                 label={renderCustomizedLabel}
@@ -184,8 +184,8 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
     }
 
     return (
-      <div className="flex flex-col items-center pt-2 pb-4">
-        <div className="w-full h-56 relative px-2 mt-2">
+      <div className="flex flex-col items-center pt-1 pb-2">
+        <div className="w-full h-52 relative px-2 mt-2">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={stats.barData}
@@ -231,25 +231,25 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
   return (
     <div className="bg-white text-black p-8 font-serif w-[800px] h-[1131px] mx-auto box-border relative overflow-hidden" id={`pdf-report-${school.School_ID}`}>
       {/* --- HEADER --- */}
-      <div className="text-center mb-8 relative">
-        <div className="absolute right-0 top-0">
-          <div className="w-24 h-auto">
+      <div className="text-center mb-6 relative">
+        <div className="absolute right-4 top-2">
+          <div className="w-16 h-auto">
             <img src="/pdf-logo.png" alt="Teach For Change" className="w-full h-auto object-contain" />
           </div>
         </div>
 
-        <h1 className="text-2xl font-bold italic mb-1 px-16">{getSchoolTitle()}</h1>
-        <h2 className="text-lg font-bold italic mb-3">
+        <h1 className="text-[26px] font-bold italic mb-1 px-16">{getSchoolTitle()}</h1>
+        <h2 className="text-[20px] font-bold italic mb-2">
           {school.Mandal ? `${school.Mandal} Mandal, ` : ''}{school.District} District.
         </h2>
         
-        <h3 className="text-xl font-bold mb-3">{phase} Report</h3>
-        <p className="text-right text-lg font-bold mr-16">- By Teach For Change Trust</p>
+        <h3 className="text-[24px] font-bold mt-4 mb-2">{phase} Report</h3>
+        <p className="text-right text-[22px] font-bold mr-16">- By Teach For Change Trust</p>
       </div>
 
       {/* --- ABOUT --- */}
-      <div className="mb-6 px-4">
-        <p className="text-base italic leading-relaxed text-justify">
+      <div className="mb-4 px-4">
+        <p className="text-[17px] italic leading-relaxed text-justify">
           <strong className="font-bold">About:</strong> {
             phase === 'Baseline' ? "The Baseline Assessment is conducted in the beginning of the smart classroom program of Teach For Change. In this assessment, the students are individually assessed in 5 parameters of English Language Literacy." :
             phase === 'Midline' ? "The Midline Assessment is conducted in the mid of year of the smart classroom program of Teach For Change. In this assessment, the students are individually assessed in 5 parameters of English Language Literacy." :
@@ -258,8 +258,8 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
         </p>
       </div>
 
-      <div className="mb-4 px-4">
-        <p className="text-base font-bold">Results: The grade wise details:</p>
+      <div className="mb-2 px-4">
+        <p className="text-[17px] font-bold">Results: The grade wise details:</p>
       </div>
 
       {/* --- GRADES 3 & 4 GRID --- */}
@@ -267,7 +267,7 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
         
         {/* Grade 3 Column */}
         <div className="border-r border-slate-300">
-          <div className="bg-[#A9D18E] py-2 text-center border-b border-white">
+          <div className="bg-[#A9D18E] py-1.5 text-center border-b border-white">
             <h3 className="font-bold text-lg">Grade 3</h3>
           </div>
           {phase === 'Baseline' ? renderPieChart(grade3, `${shortName}_3rd Class ${phase} Test_Result`) : renderBarChart(grade3)}
@@ -285,7 +285,7 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
 
         {/* Grade 4 Column */}
         <div>
-          <div className="bg-[#A9D18E] py-2 text-center border-b border-white border-l">
+          <div className="bg-[#A9D18E] py-1.5 text-center border-b border-white border-l">
             <h3 className="font-bold text-lg">Grade 4</h3>
           </div>
           {phase === 'Baseline' ? renderPieChart(grade4, `${shortName}_4th Class ${phase} Test_Result`) : renderBarChart(grade4)}
@@ -303,15 +303,15 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
       </div>
 
       {/* --- GRADE 5 & NEXT STEPS GRID --- */}
-      <div className="grid grid-cols-2 gap-0 border-t border-white mt-1">
+      <div className="grid grid-cols-2 gap-0 border-t border-slate-300">
         
         {/* Grade 5 Column */}
         <div className="border-r border-slate-300">
-          <div className="bg-[#A9D18E] py-2 text-center border-b border-white">
+          <div className="bg-[#A9D18E] py-1.5 text-center border-b border-white">
             <h3 className="font-bold text-lg">Grade 5</h3>
           </div>
           {phase === 'Baseline' ? renderPieChart(grade5, `${shortName}_5th Class ${phase} Test_Result`) : renderBarChart(grade5)}
-          <div className="px-4 text-center pb-4 text-[13px] italic">
+          <div className="px-4 text-center pb-2 text-[12px] italic">
             {phase === 'Endline' ? (
               <>Fig 3: A total of {grade5.assessedCount} students were assessed, the English<br/>
               Language Literacy level is increased from<br/>
@@ -325,7 +325,7 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
 
         {/* Next Steps Column */}
         <div>
-          <div className="bg-[#FFD966] py-2 text-center border-b border-white border-l">
+          <div className="bg-[#FFD966] py-1.5 text-center border-b border-white border-l">
             <h3 className="font-bold text-lg">{phase === 'Endline' ? 'THANK YOU' : 'Next Steps'}</h3>
           </div>
           
