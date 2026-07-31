@@ -246,24 +246,24 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
   return (
     <div className="bg-white text-black p-6 w-[210mm] h-[297mm] mx-auto box-border relative overflow-hidden" id={`pdf-report-${school.School_ID}`} style={{ fontFamily: "'Times New Roman', Times, serif" }}>
       {/* Absolute positioning for perfect logo placement, visually balanced and professionally sized */}
-      <div className="absolute left-[calc(175mm-24px)] top-[calc(8mm-24px)] w-[22mm] h-[22mm]">
+      <div className="absolute left-[168.6mm] top-[11.6mm] w-[22mm] h-[22mm]">
         <img src="/pdf-logo.png" alt="Teach For Change" className="w-full h-full object-contain" />
       </div>
 
       {/* --- HEADER --- */}
       {/* Absolute positioning perfectly centered horizontally on the page, retaining 145mm and 110mm bounding widths */}
-      <div className="absolute left-1/2 -translate-x-1/2 top-[calc(12mm-24px)] w-[145mm] text-center">
+      <div className="absolute left-1/2 -translate-x-1/2 top-[15.6mm] w-[145mm] text-center">
         <h1 className="font-bold italic whitespace-nowrap overflow-hidden" style={{ fontSize: getDynamicTitleSize(schoolTitleText) }}>
           {schoolTitleText}
         </h1>
       </div>
-      <div className="absolute left-1/2 -translate-x-1/2 top-[calc(22mm-24px)] w-[110mm] text-center">
+      <div className="absolute left-1/2 -translate-x-1/2 top-[25.6mm] w-[110mm] text-center">
         <h2 className="font-bold italic whitespace-nowrap overflow-hidden" style={{ fontSize: getDynamicSubtitleSize(districtText) }}>
           {districtText}
         </h2>
       </div>
 
-      <div className="text-center mb-8 relative mt-[60px]">
+      <div className="text-center mb-8 relative mt-[100px]">
         <h3 className="font-bold mt-4 mb-2" style={{ fontSize: '16px' }}>{phase} Report</h3>
         <p className="text-right mr-16" style={{ fontSize: '14px' }}>
           - <span className="font-normal">By</span> <span className="font-bold">Teach For Change Trust</span>
