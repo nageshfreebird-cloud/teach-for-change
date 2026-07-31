@@ -229,15 +229,15 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
   const shortName = school.School_Name.replace(/\s+/g, '_').toUpperCase();
 
   const getDynamicTitleSize = (text: string) => {
-    // Mathematical formula to perfectly stretch font size across the 145mm (3-17.5cm) bounds.
-    const size = 1100 / Math.max(text.length, 1);
-    return `${Math.min(Math.max(size, 10), 26)}px`;
+    // Mathematical formula to perfectly stretch font size across the 145mm (3-17.5cm) bounds without overflowing.
+    const size = 950 / Math.max(text.length, 1);
+    return `${Math.min(Math.max(size, 10), 24)}px`;
   };
 
   const getDynamicSubtitleSize = (text: string) => {
-    // Mathematical formula to perfectly stretch font size across the 110mm (4-15cm) bounds.
-    const size = 800 / Math.max(text.length, 1);
-    return `${Math.min(Math.max(size, 9), 20)}px`;
+    // Mathematical formula to perfectly stretch font size across the 110mm (4-15cm) bounds without overflowing.
+    const size = 720 / Math.max(text.length, 1);
+    return `${Math.min(Math.max(size, 9), 18)}px`;
   };
 
   const schoolTitleText = getSchoolTitle();
@@ -264,7 +264,7 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
       </div>
 
       <div className="text-center mb-8 relative mt-[60px]">
-        <h3 className="font-bold mt-4 mb-2" style={{ fontSize: '13px' }}>{phase} Report</h3>
+        <h3 className="font-bold mt-4 mb-2" style={{ fontSize: '16px' }}>{phase} Report</h3>
         <p className="text-right mr-16" style={{ fontSize: '14px' }}>
           - <span className="font-normal">By</span> <span className="font-bold">Teach For Change Trust</span>
         </p>
