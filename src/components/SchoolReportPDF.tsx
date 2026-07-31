@@ -246,26 +246,25 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
 
   return (
     <div className="bg-white text-black p-6 w-[210mm] h-[297mm] mx-auto box-border relative overflow-hidden" id={`pdf-report-${school.School_ID}`} style={{ fontFamily: "'Times New Roman', Times, serif" }}>
-      {/* --- HEADER --- */}
-      {/* Absolute positioning for perfect 2-16cm and 4-14cm scale alignment */}
-      <div className="absolute left-[20mm] top-[24px] w-[140mm] text-center">
-        <h1 className="font-bold italic mb-1 whitespace-nowrap overflow-hidden" style={{ fontSize: getDynamicTitleSize(schoolTitleText) }}>
-          {schoolTitleText}
-        </h1>
-      </div>
-      <div className="absolute left-[40mm] top-[58px] w-[100mm] text-center">
-        <h2 className="font-bold italic whitespace-nowrap overflow-hidden" style={{ fontSize: getDynamicSubtitleSize(districtText) }}>
-          {districtText}
-        </h2>
-      </div>
-
-      {/* Absolute positioning for perfect logo placement based on 0.5-2.05cm (top) and 17.9-19cm (left) ruler */}
-      <div className="absolute left-[179mm] top-[5mm] w-[11mm] h-[15.1mm]">
+      {/* Absolute positioning for perfect logo placement matching physical ruler (170mm left, 10mm top), accounting for the 24px parent padding */}
+      <div className="absolute left-[calc(170mm-24px)] top-[calc(10mm-24px)] w-[18.2mm] h-[23.5mm]">
         <img src="/pdf-logo.png" alt="Teach For Change" className="w-full h-full object-contain" />
       </div>
 
-      <div className="text-center mb-8 relative mt-[75px]">
-        <h3 className="font-bold mt-4 mb-2" style={{ fontSize: '13px' }}>{phase} Report</h3>
+      {/* --- HEADER --- */}
+      <div className="text-center mb-8 relative pt-[10mm]">
+        <div className="w-[130mm] mx-auto text-center mb-2">
+          <h1 className="font-bold italic whitespace-nowrap overflow-hidden" style={{ fontSize: getDynamicTitleSize(schoolTitleText) }}>
+            {schoolTitleText}
+          </h1>
+        </div>
+        <div className="w-[100mm] mx-auto text-center">
+          <h2 className="font-bold italic whitespace-nowrap overflow-hidden" style={{ fontSize: getDynamicSubtitleSize(districtText) }}>
+            {districtText}
+          </h2>
+        </div>
+
+        <h3 className="font-bold mt-10 mb-2" style={{ fontSize: '13px' }}>{phase} Report</h3>
         <p className="text-right mr-16" style={{ fontSize: '14px' }}>
           - <span className="font-normal">By</span> <span className="font-bold">Teach For Change Trust</span>
         </p>
