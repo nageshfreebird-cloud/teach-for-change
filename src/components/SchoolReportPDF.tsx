@@ -185,7 +185,7 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
 
     return (
       <div className="flex flex-col items-center pt-1 pb-2">
-        <div className="w-[328px] h-[195px] relative mx-auto px-2 mt-2">
+        <div className="w-[90mm] h-[55mm] relative mx-auto px-2 mt-2">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={stats.barData}
@@ -230,17 +230,18 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
 
   const getDynamicTitleSize = (text: string) => {
     const len = text.length;
-    if (len < 65) return '18px';
-    if (len < 80) return '16px';
-    if (len < 95) return '14px';
+    if (len < 55) return '18px';
+    if (len < 70) return '16px';
+    if (len < 85) return '14px';
     return '12px';
   };
 
   const getDynamicSubtitleSize = (text: string) => {
     const len = text.length;
-    if (len < 75) return '15px';
-    if (len < 90) return '13px';
-    return '11px';
+    if (len < 40) return '15px';
+    if (len < 50) return '13px';
+    if (len < 65) return '11px';
+    return '10px';
   };
 
   const schoolTitleText = getSchoolTitle();
@@ -249,20 +250,24 @@ export default function SchoolReportPDF({ school, phase, students, results }: Sc
   return (
     <div className="bg-white text-black p-6 w-[210mm] h-[297mm] mx-auto box-border relative overflow-hidden" id={`pdf-report-${school.School_ID}`} style={{ fontFamily: "'Times New Roman', Times, serif" }}>
       {/* --- HEADER --- */}
-      <div className="text-center mb-6 relative">
-        <div className="absolute right-4 top-2">
-          <div className="w-16 h-auto">
-            <img src="/pdf-logo.png" alt="Teach For Change" className="w-full h-auto object-contain" />
-          </div>
-        </div>
-
-        <h1 className="font-bold italic mb-1 px-16 whitespace-nowrap overflow-hidden" style={{ fontSize: getDynamicTitleSize(schoolTitleText) }}>
+      {/* Absolute positioning for perfect 2-16cm and 4-14cm scale alignment */}
+      <div className="absolute left-[20mm] top-[24px] w-[140mm] text-center">
+        <h1 className="font-bold italic mb-1 whitespace-nowrap overflow-hidden" style={{ fontSize: getDynamicTitleSize(schoolTitleText) }}>
           {schoolTitleText}
         </h1>
-        <h2 className="font-bold italic mb-2 whitespace-nowrap overflow-hidden" style={{ fontSize: getDynamicSubtitleSize(districtText) }}>
+      </div>
+      <div className="absolute left-[40mm] top-[52px] w-[100mm] text-center">
+        <h2 className="font-bold italic whitespace-nowrap overflow-hidden" style={{ fontSize: getDynamicSubtitleSize(districtText) }}>
           {districtText}
         </h2>
-        
+      </div>
+
+      {/* Absolute positioning for perfect logo placement based on 0.5-2.05cm (top) and 17.9-19cm (left) ruler */}
+      <div className="absolute left-[179mm] top-[5mm] w-[11mm] h-[15.1mm]">
+        <img src="/pdf-logo.png" alt="Teach For Change" className="w-full h-full object-contain" />
+      </div>
+
+      <div className="text-center mb-6 relative mt-[65px]">
         <h3 className="font-bold mt-4 mb-2" style={{ fontSize: '13px' }}>{phase} Report</h3>
         <p className="text-right mr-16" style={{ fontSize: '14px' }}>
           - <span className="font-normal">By</span> <span className="font-bold">Teach For Change Trust</span>
